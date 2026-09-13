@@ -47,4 +47,4 @@ A aplicação adota uma arquitetura em duas camadas, separando o Back-end (API R
 Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 * [Java 17+](https://www.oracle.com/java/technologies/javase-downloads.html) ou superior
 * [Maven](https://maven.apache.org/)
-* [MySQL Server](https://dev.mysql.com/downloads/mysql/)
+* [MySQL](https://dev.mysql.com/downloads/mysql/)
