@@ -1,0 +1,130 @@
+
+
+body{
+    padding: 5px;
+    margin: 2px;
+    background-color: var(--color-bg);
+    font-family: var(--font-family-base);
+    color: var(--color-primary);
+}
+
+
+.cabecalho{
+    display:flex;
+    gap:8px;
+    justify-content: flex-start;
+    align-items: baseline;
+    border-radius: var(--radius-md);
+}
+
+
+.cabecalho .busca{
+    display: flex;
+    margin:2px;
+    grid-gap:8px;
+    flex-direction: row;
+    justify-content: center;
+    
+    border-radius: var(--radius-md);
+}
+
+.cabecalho aside{
+    margin-left:auto;
+}
+
+.login{
+    background-color:var(--color-primary);
+    border-radius: var(--radius-md);
+}
+
+.registrar{
+    background-color:var(--color-primary-soft);
+    border-radius: var(--radius-md);
+}
+
+main{
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-8);
+}
+
+.line {
+    border: 0;
+    height: 1px;
+    background: var(--color-primary);
+
+}
+.secao-titulo{
+    text-align: center;
+}
+.grid-filmes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-6);
+    padding: var(--space-6) 0;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    background-color: var(--color-primary-soft);
+    border-radius: var(--radius-md);
+    text-decoration: none;          /* remove o sublinhado do link */
+    color: var(--color-bg);         /* texto escuro sobre fundo creme */
+    transition: transform .2s, box-shadow .2s;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .3);
+}
+
+.card img {
+    width: 100%;
+    aspect-ratio: 2 / 3;            /* proporção de pôster */
+    object-fit: cover;              /* corta sem distorcer */
+    border-radius: var(--radius-sm);
+}
+
+.card h3 {
+    margin: 0;
+}
+
+.avaliacao {
+    margin: 0;
+    color: var(--color-text-body);
+}
+
+
+/* ---------- Scroll infinito ---------- */
+.sentinela{
+    height: 1px;
+}
+
+.status{
+    text-align: center;
+    min-height: 1.5em;
+    color: var(--color-primary-soft);
+}
+
+.btn-tentar{
+    margin-left: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
+    color: var(--color-text-on-primary);
+    cursor: pointer;
+}
+
+@media(max-width:857px){
+    .cabecalho{
+        display: flex;
+        gap: 2px;
+        flex-wrap: wrap;
+        flex-direction: column
+    }
+}
+

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Revisões</title>
+    <link type="text/css" rel="stylesheet" href="../css/user.css">
+    <link type="text/css" rel="stylesheet" href="../css/design-tokens.css">
+    <link rel="shortcut icon" href="../midia/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <header class="cabecalho">
+        <img src="../midia/logo (2).png"  alt="logo-espreitar">
+        <h1 >espreitar.</h1>
+
+        <div class="busca">
+            <select class="categoria">
+                <option value="filme">Filme</option>
+                <option value="serie">Série</option>
+            </select>
+
+            <select class="classificacao">
+                <option value="ruim">Ruim</option>
+                <option value="razoável">Razoável</option>
+                <option value="bom">Bom</option>
+                <option value="muito_bom">Muito Bom</option>
+                <option value="excelente">Excelente</option>
+            </select>
+        </div>
+
+        <form id="pesquisa" role="search">
+            <input type="text" placeholder="Buscar..." name="search">
+            <button type="submit" class="search"><i class="fa fa-search"></i></button>
+        </form>
+
+        <button type="submit" id="notificacao" class="notificacao"> <img src="../midia/notifications.png"> </button>
+
+        <div id="usuario" class="usuario"></div>
+
+
+    </header>
+
+    <main class="conteudo">
+        <h1> Minhas Revisões </h1>
+
+        <section id="grid-revisoes" class="grid-revisoes"></section>
+
+        <!-- Marcador invisível: quando ele aparece na tela, carregamos a próxima página -->
+        <div id="sentinela" class="sentinela"></div>
+        <p id="status" class="status" role="status"></p>
+    </main>
+
+</body>
+</html>
