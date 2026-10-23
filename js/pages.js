@@ -186,13 +186,15 @@ function pageRegistro() {
       <div class="campos">
         <h2 class="secao-titulo">Registrar-se</h2>
         <label for="nome">Nome</label>
-        <input type="text" id="nome" required>
+            <input type="text" id="nome" required>
         <label for="email">E-mail</label>
-        <input type="email" id="email" required>
+            <input type="email" id="email" required>
         <label for="senha">Senha</label>
-        <input type="password" id="senha" required>
+            <input type="password" id="senha" required>
         <label for="confirmar-senha">Confirmar senha</label>
-        <input type="password" id="confirmar-senha" required>
+            <input type="password" id="confirmar-senha" required>
+        <label for="imagem">Foto de perfil</label>
+            <input type="file" accept="image/*" alt="Selecionar imagem" optional>
       </div>
       <div class="acoes">
         <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
