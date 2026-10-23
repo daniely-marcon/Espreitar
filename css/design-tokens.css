@@ -31,12 +31,13 @@
   --radius-full: 999px;           /* botão "pill", avatar circular */
 
   /* ---- Espaçamento (escala base, ajustar após Inspect) ---- */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 10px;
+    --space-4: 12px;
+    --space-5: 16px;
+    --space-6: 24px;
+    --space-7: 32px;
 
   /* ---- Tipografia ---- */
     --font-family-base: "Poppins", "Quicksand", "Segoe UI", sans-serif;
@@ -46,4 +47,9 @@
   --font-size-lg: 1.25rem;
   --font-size-xl: 1.75rem;
   --font-size-2xl: 2.25rem;
+
+
+    /* ---- Cores extras usadas pelas telas ---- */
+    --color-ink: #1c1b1f; /* texto escuro sobre cards/popup */
+    --color-lilac: #e8def8; /* menus suspensos e botões pequenos */
 }

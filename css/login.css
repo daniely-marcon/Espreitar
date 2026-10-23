@@ -1,58 +1,4 @@
-body{
-    margin: 2px;
-    background-color: var(--color-bg);
-    font-family: var(--font-family-base);
-    color: var(--color-primary);
-}
-
-
-.logo {
-    display: flex;
-    align-items: baseline;      /* alinha logo e título na vertical */
-    justify-content: left;  /* centraliza o conjunto na horizontal (opcional) */
-    gap: 8px;
-}
-
-.logo h1 {
-    margin: 0;                /* remove a margem padrão do h1, que desalinha o texto da imagem */
-}
-
-.login-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;      /* centraliza na horizontal */
-    gap: 16px;
-    width: 100%;
-    max-width: 360px;         /* largura da coluna de login */
-    margin: 10px auto;           /* centraliza a própria caixa na página */
-}
-.center {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-
-.center input {
-    width: 100%;
-    box-sizing: border-box;   /* o padding não estoura a largura */
-}
-.cancel{
-    color: var(--color-primary);
-    background-color: transparent;
-    border-radius: var(--radius-md);
-}
-.login{
-    color: var(--color-bg);
-    background-color:var(--color-primary);
-    border-radius: var(--radius-md);
-}
-
-.acoes {
-    display: flex;
-    gap: 16px;
-    justify-content: center;  /* aqui é uma linha, então justify-content centraliza na horizontal */
-}
-
+/* Botão "Sign in with Google" */
 .gsi-material-button {
     justify-content: center;
     -moz-user-select: none;
@@ -68,7 +14,7 @@ body{
     box-sizing: border-box;
     color: white;
     cursor: pointer;
-    font-family: 'Roboto', arial, sans-serif;
+    font-family: "Roboto", arial, sans-serif;
     font-size: 14px;
     height: 40px;
     letter-spacing: 0.25px;
@@ -77,8 +23,14 @@ body{
     padding: 0 12px;
     position: relative;
     text-align: center;
-    -webkit-transition: background-color .218s, border-color .218s, box-shadow .218s;
-    transition: background-color .218s, border-color .218s, box-shadow .218s;
+    -webkit-transition:
+            background-color 0.218s,
+            border-color 0.218s,
+            box-shadow 0.218s;
+    transition:
+            background-color 0.218s,
+            border-color 0.218s,
+            box-shadow 0.218s;
     vertical-align: middle;
     white-space: nowrap;
     width: auto;
@@ -111,7 +63,7 @@ body{
 .gsi-material-button .gsi-material-button-contents {
     -webkit-flex-grow: 1;
     flex-grow: 1;
-    font-family: 'Roboto', arial, sans-serif;
+    font-family: "Roboto", arial, sans-serif;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -119,8 +71,8 @@ body{
 }
 
 .gsi-material-button .gsi-material-button-state {
-    -webkit-transition: opacity .218s;
-    transition: opacity .218s;
+    -webkit-transition: opacity 0.218s;
+    transition: opacity 0.218s;
     bottom: 0;
     left: 0;
     opacity: 0;
@@ -150,8 +102,12 @@ body{
 }
 
 .gsi-material-button:not(:disabled):hover {
-    -webkit-box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
-    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .30), 0 1px 3px 1px rgba(60, 64, 67, .15);
+    -webkit-box-shadow:
+            0 1px 2px 0 rgba(60, 64, 67, 0.3),
+            0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    box-shadow:
+            0 1px 2px 0 rgba(60, 64, 67, 0.3),
+            0 1px 3px 1px rgba(60, 64, 67, 0.15);
 }
 
 .gsi-material-button:not(:disabled):hover .gsi-material-button-state {
