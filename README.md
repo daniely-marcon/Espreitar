@@ -48,3 +48,26 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 * [Java 17+](https://www.oracle.com/java/technologies/javase-downloads.html) ou superior
 * [Maven](https://maven.apache.org/)
 * [MySQL](https://dev.mysql.com/downloads/mysql/)
+
+### Banco de dados e migrações
+
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; a migração inicial `V1__criar_schema_inicial.sql` cria as tabelas das entidades. O Hibernate usa `ddl-auto=validate` para conferir o esquema, sem criar ou alterar tabelas por conta própria.
+
+O backend está configurado para conectar em `localhost:3310/espreitar`. O usuário padrão é `user_lbd`; defina `DB_PASSWORD` com a senha configurada no seu MySQL antes de iniciar. Por exemplo, no Linux/macOS:
+
+```bash
+export DB_USER=user_lbd
+read -rsp "Senha do MySQL: " DB_PASSWORD
+echo
+export DB_PASSWORD
+cd backend/espreitar
+./mvnw spring-boot:run
+```
+
+O MySQL precisa estar ativo, ter o banco `espreitar` criado e conceder ao usuário da aplicação permissão para criar tabelas, índices e chaves estrangeiras. Na primeira inicialização, o Flyway aplica a `V1`; nas seguintes, consulta `flyway_schema_history` e executa apenas migrações ainda não aplicadas.
+
+O `docker-compose.yml` na raiz do repositório inicia um MySQL local alternativo. O stack `lesson_mysql` usado no ambiente de desenvolvimento é externo e não faz parte deste repositório. Se usar o Compose do projeto, configure `DB_PASSWORD` com a senha definida nele; se usar o stack externo, configure a senha desse stack. Não versione senhas reais.
+
+### Estado atual
+
+Até este marco, o backend tem entidades JPA, repositórios e a migração inicial do Flyway. A migração `V1` foi aplicada e validada no banco `espreitar`. Ainda faltam serviços, controladores/endpoints e a interface própria; a tela de login atual é a página padrão do Spring Security.
