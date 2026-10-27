@@ -53,20 +53,23 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 
 O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; a migração inicial `V1__criar_schema_inicial.sql` cria as tabelas das entidades. O Hibernate usa `ddl-auto=validate` para conferir o esquema, sem criar ou alterar tabelas por conta própria.
 
-O backend está configurado para conectar em `localhost:3310/espreitar`. O usuário padrão é `user_lbd`; defina `DB_PASSWORD` com a senha configurada no seu MySQL antes de iniciar. Por exemplo, no Linux/macOS:
+O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
 ```bash
-export DB_USER=user_lbd
-read -rsp "Senha do MySQL: " DB_PASSWORD
-echo
-export DB_PASSWORD
-cd backend/espreitar
+docker compose up -d
+```
+
+O arquivo `.env` fornece as credenciais ao Compose. Para iniciar o backend, abra outro terminal no diretório `backend/espreitar` e execute:
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-O MySQL precisa estar ativo, ter o banco `espreitar` criado e conceder ao usuário da aplicação permissão para criar tabelas, índices e chaves estrangeiras. Na primeira inicialização, o Flyway aplica a `V1`; nas seguintes, consulta `flyway_schema_history` e executa apenas migrações ainda não aplicadas.
+A configuração local usa `DB_PASSWORD` quando ela está definida; caso contrário, usa `123`. O backend usa a porta `8081` para evitar conflito com a porta `8080` já ocupada neste ambiente. Para iniciar na porta padrão do Spring, remova `server.port=8081` de `application.properties`.
 
-O `docker-compose.yml` na raiz do repositório inicia um MySQL local alternativo. O stack `lesson_mysql` usado no ambiente de desenvolvimento é externo e não faz parte deste repositório. Se usar o Compose do projeto, configure `DB_PASSWORD` com a senha definida nele; se usar o stack externo, configure a senha desse stack. Não versione senhas reais.
+O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica a `V1`; nas seguintes, consulta `flyway_schema_history` e executa apenas migrações ainda não aplicadas.
+
+Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. O `.env` é local e não deve ser enviado ao Git; a senha `123` serve apenas para desenvolvimento local e deve ser substituída por uma senha forte antes de compartilhar o ambiente.
 
 ### Estado atual
 

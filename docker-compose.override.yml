@@ -1,0 +1,13 @@
+services:
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: espreitar-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+    ports:
+      - "8184:80"
