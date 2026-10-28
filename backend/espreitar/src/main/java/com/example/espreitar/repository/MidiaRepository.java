@@ -5,6 +5,8 @@ import com.example.espreitar.model.TipoMidia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +24,12 @@ public interface MidiaRepository extends JpaRepository<Midia, Long> {
 
     /** Destaques da pagina principal (RF09). */
     Page<Midia> findAllByOrderByNotaMediaDescTotalAvaliacoesDesc(Pageable pageable);
+
+    Optional<Midia> findByTituloIgnoreCaseAndAnoAndTipo(String titulo, Integer ano, TipoMidia tipo);
+
+    @Query("SELECT m FROM Midia m WHERE (:tipo IS NULL OR m.tipo = :tipo) AND (:notaMinima IS NULL OR m.notaMedia >= :notaMinima)")
+    List<Midia> filtrarPorTipoENota(
+            @Param("tipo") TipoMidia tipo,
+            @Param("notaMinima") Double notaMinima
+    );
 }
