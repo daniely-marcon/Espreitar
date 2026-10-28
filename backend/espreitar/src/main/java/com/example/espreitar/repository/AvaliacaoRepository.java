@@ -25,6 +25,8 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, Long> {
 
     List<Avaliacao> findByUsuarioIdOrderByDataCriacaoDesc(Long usuarioId);
 
+    List<Avaliacao> findByMidiaIdAndSpoilerOrderByDataCriacaoDesc(Long midiaId, boolean spoiler);
+
     @Query("select avg(a.nota) as media, count(a) as total from Avaliacao a where a.midia.id = :midiaId")
     ResumoNotas resumirNotas(@Param("midiaId") Long midiaId);
 }
