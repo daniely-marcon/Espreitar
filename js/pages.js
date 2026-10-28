@@ -145,6 +145,8 @@ function pageLogin() {
                      <input type="email" id="email" placeholder="email" autocomplete="off" required>
                 <label for="senha">Senha</label>
                     <input type="password" id="senha" placeholder="senha" autocomplete="off" required>
+                <br>
+                <a type="submit" class="reset-senha" onclick="">Esqueci minha senha</a>
               </div>
               
               <button type="button" class="gsi-material-button" onclick="toast('Login com Google requer OAuth no back-end.')">
@@ -161,11 +163,12 @@ function pageLogin() {
                 <span class="gsi-material-button-contents">Sign in with Google</span>
               </div>
             </button>
-              <div class="acoes">
+               <div class="acoes">
+                
                 <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
                 <button type="submit" class="enviar">Login</button>
               </div>
-              
+                          
             </form>
           </main>`;
     $("#form-login").onsubmit = (e) => {

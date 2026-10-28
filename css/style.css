@@ -49,20 +49,24 @@ textarea {
     font-size: 30px;
     text-decoration: none;
 }
-
+.acoes{
+    flex-direction: row;
+}
 
 .enviar{
     display: flex;
     align-items: center;
     background-color:var(--color-primary);
     color: var(--color-text-on-primary);
+    border-radius: var(--space-3);
 }
 
 .registrar{
     display:flex;
     align-items: center;
     background-color: transparent;
-    color: var(--color-primary)
+    color: var(--color-primary);
+    border-radius: var(--space-3);
 }
 
 .busca {
@@ -338,7 +342,16 @@ main {
     border: 1px solid #000;
     padding: var(--space-4);
     color: var(--color-ink);
-    border-radius: 0;
+    width: 100%;
+    border-radius: var(--space-3);
+}
+
+.acoes{
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-6);
+    justify-content: center;
+
 }
 
 
@@ -347,6 +360,7 @@ main {
     align-items:  center;
     background-color: transparent;
     color: var(--color-primary);
+    border-radius: var(--space-3);
 }
 
 .centralizado {
