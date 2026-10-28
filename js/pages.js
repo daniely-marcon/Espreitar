@@ -108,11 +108,13 @@ function pageDados() {
               <h2 class="secao-titulo centralizado">Atualizar Dados Cadastrados</h2>
               <div class="formulario">
                  <label>Nome</label>
-                 <input id="dados-nome" value="${especiais(/* completar*/ )}">
+                    <input id="dados-nome" value="${especiais(/* completar*/ )}">
                  <label>E-mail</label>
-                 <input id="dados-email" type="email" value="${especiais(/* completar*/ )}">
+                     <input id="dados-email" type="email" value="${especiais(/* completar*/ )}">
                  <label>Senha</label>
-                 <input id="dados-senha" type="password" placeholder="Nova senha (opcional)">
+                    <input id="dados-senha" type="password" placeholder="Nova senha (opcional)">
+                 <label for="imagem">Foto de perfil</label>
+                    <input type="file" accept="image/*" alt="Selecionar imagem" optional>
              <div class="acoes">
                  <button class="cancelar" onclick="history.back()">Cancelar</button>
                  <button class="enviar" onclick="saveData()">Atualizar ️</button>
@@ -134,36 +136,38 @@ function saveData() {
 
 /* login.html */
 function pageLogin() {
-    $("#conteudo").innerHTML = `<main>
-    <form class="formulario" id="form-login">
-      <div class="campos">
-        <h2 class="secao-titulo">Login</h2>
-        <label for="email">E-mail</label>
-        <input type="email" id="email" placeholder="email" required>
-        <label for="senha">Senha</label>
-        <input type="password" id="senha" placeholder="senha" required>
-      </div>
-      <button type="button" class="gsi-material-button" onclick="toast('Login com Google requer OAuth no back-end.')">
-      <div class="gsi-material-button-state"></div>
-      <div class="gsi-material-button-content-wrapper">
-        <div class="gsi-material-button-icon">
-          <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display: block;">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-          </svg>
-        </div>
-        <span class="gsi-material-button-contents">Sign in with Google</span>
-      </div>
-    </button>
-      <div class="acoes">
-        <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
-        <button type="submit" class="enviar">Login</button>
-      </div>
-      
-    </form>
-  </main>`;
+    $("#conteudo").innerHTML =
+        `<main>
+            <form class="formulario" id="form-login">
+              <div class="campos">
+                <h2 class="secao-titulo">Login</h2>
+                <label for="email">E-mail</label>
+                     <input type="email" id="email" placeholder="email" autocomplete="off" required>
+                <label for="senha">Senha</label>
+                    <input type="password" id="senha" placeholder="senha" autocomplete="off" required>
+              </div>
+              
+              <button type="button" class="gsi-material-button" onclick="toast('Login com Google requer OAuth no back-end.')">
+              <div class="gsi-material-button-state"></div>
+              <div class="gsi-material-button-content-wrapper">
+                <div class="gsi-material-button-icon">
+                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display: block;">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                  </svg>
+                </div>
+                <span class="gsi-material-button-contents">Sign in with Google</span>
+              </div>
+            </button>
+              <div class="acoes">
+                <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
+                <button type="submit" class="enviar">Login</button>
+              </div>
+              
+            </form>
+          </main>`;
     $("#form-login").onsubmit = (e) => {
         e.preventDefault();
         login();
@@ -181,26 +185,28 @@ function login() {
 
 /* registro.html — cadastro livre, sem aprovação */
 function pageRegistro() {
-    $("#conteudo").innerHTML = `<main>
-    <form class="formulario" id="form-registro">
-      <div class="campos">
-        <h2 class="secao-titulo">Registrar-se</h2>
-        <label for="nome">Nome</label>
-            <input type="text" id="nome" required>
-        <label for="email">E-mail</label>
-            <input type="email" id="email" required>
-        <label for="senha">Senha</label>
-            <input type="password" id="senha" required>
-        <label for="confirmar-senha">Confirmar senha</label>
-            <input type="password" id="confirmar-senha" required>
-        <label for="imagem">Foto de perfil</label>
-            <input type="file" accept="image/*" alt="Selecionar imagem" optional>
-      </div>
-      <div class="acoes">
-        <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
-        <button type="submit" class="enviar">Confirmar</button>
-      </div>
-    </form>
+    $("#conteudo").innerHTML =
+
+        `<main>
+            <form class="formulario" id="form-registro">
+              <div class="campos">
+                <h2 class="secao-titulo">Registrar-se</h2>
+                <label for="nome">Nome</label>
+                    <input type="text" id="nome" required>
+                <label for="email">E-mail</label>
+                    <input type="email" id="email" required>
+                <label for="senha">Senha</label>
+                    <input type="password" id="senha" required>
+                <label for="confirmar-senha">Confirmar senha</label>
+                    <input type="password" id="confirmar-senha" required>
+                <label for="imagem">Foto de perfil</label>
+                    <input type="file" accept="image/*" alt="Selecionar imagem" optional>
+              </div>
+              <div class="acoes">
+                <button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
+                <button type="submit" class="enviar">Confirmar</button>
+              </div>
+            </form>
   </main>`;
     $("#form-registro").onsubmit = (e) => {
         e.preventDefault();

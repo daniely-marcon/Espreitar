@@ -46,15 +46,15 @@ const go = (url) => (location.href = url);
 
 let render = () => {};
 
-const logo_ = `<a class="logo" href="index.html"><img src="../midia/logo (2).png" alt="Logo do Espreitar"><h1>espreitar.</h1></a>`;
+const logo_ = `<a class="logo" href="index.html"><img src="../midia/logo (2).png"  width="92" height="92" alt="Logo do Espreitar"><h1>espreitar.</h1></a>`;
 
 
 /* Cabeçalho -  */
 function htmlAcesso(user, qtdAvisos) {
     /* ==== usuario nao esta logado ==== */
     if (!user) {
-        return `<a class="registrar" href="register.html" >Registrar</a>
-      <a class="enviar" href="login.html" >Login</a>`;
+        return `<button class="registrar" id="resgitrar" onclick="tog('register.html')" >Registrar</button>
+      <button class="enviar"  id="login" onclick="tog('login.html')" >Login</button>`;
     }
 
     const avisos =  qtdAvisos;/*==== completar com os avisos para usuario logado====*/
@@ -104,7 +104,10 @@ function header(){
       <button type="submit" aria-label="Buscar"><i class="fa fa-search"></i></button>
     </form>
     
-    <aside class="acesso">${htmlAcesso(u, avisos)}</aside>
+    <aside class="acesso">
+        <button class="registrar" id="resgitrar" onclick="go('register.html')" >Registrar</button>
+        <button class="enviar"  id="login" onclick="go('login.html')" >Login</button>
+      </aside>
   </header>`;
     $("#categoria").value = F.type;
     $("#classificacao").value = F.rating;
@@ -113,8 +116,6 @@ function header(){
 
 
 function headerSimples() {
-    const u = me();
-    const avisos = 0; /*======= completar c id do usuario*/
     if (document.body.dataset.simples) {
         $("#cabecalho").innerHTML = `<header class="cabecalho simples">${logo_}</header>`;
     }

@@ -51,12 +51,16 @@ textarea {
 }
 
 
-.acoes.enviar{
+.enviar{
+    display: flex;
+    align-items: center;
     background-color:var(--color-primary);
     color: var(--color-text-on-primary);
 }
 
 .registrar{
+    display:flex;
+    align-items: center;
     background-color: transparent;
     color: var(--color-primary)
 }
@@ -136,6 +140,7 @@ select,
     font-size: 11px;
     padding: 1px 5px;
 }
+
 .menu-suspenso {
     position: absolute;
     top: 56px;
@@ -307,18 +312,25 @@ main {
     font-size: 22px;
     cursor: pointer;
 }
+
 .formulario {
-    max-width: 440px;
-    margin: 40px auto;
     display: flex;
+    max-width: 400px;
+    margin: 40px auto;
     flex-direction: column;
     gap: 6px;
+    align-content: center;
+
 }
+
 .formulario label {
+    display: flex;
+    gap: var(--space-4);
     color: var(--color-primary);
     font-size: 14px;
     margin-top: var(--space-4);
 }
+
 .formulario input,
 .formulario select,
 .formulario textarea {
@@ -328,17 +340,15 @@ main {
     color: var(--color-ink);
     border-radius: 0;
 }
-.acoes {
-    display: flex;
-    justify-content: center;
-    gap: var(--space-5);
-    margin-top: 28px;
-}
 
-.acoes.cancelar{
+
+.cancelar{
+    display:flex;
+    align-items:  center;
     background-color: transparent;
     color: var(--color-primary);
 }
+
 .centralizado {
     text-align: center;
 }
@@ -448,6 +458,7 @@ main {
     padding: 14px;
     border-radius: var(--space-1) var(--space-1) 0 0;
 }
+
 .aviso-flutuante {
     position: fixed;
     left: 50%;
