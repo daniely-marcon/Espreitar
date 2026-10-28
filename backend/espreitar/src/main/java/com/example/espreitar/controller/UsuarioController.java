@@ -6,6 +6,8 @@ import com.example.espreitar.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/usuarios")
 @RequiredArgsConstructor
@@ -29,5 +31,9 @@ public class UsuarioController {
     @PutMapping("/{email}")
     public Usuario atualizar(@PathVariable String email,@RequestBody Usuario user){
         return usuarioService.atualizarUsuario(email,user);
+    }
+    @GetMapping("/{id}/notificacoes")
+    public List<String> listarNotificacoes(@PathVariable Long id) {
+        return usuarioService.listarNotificacoes(id);
     }
 }
