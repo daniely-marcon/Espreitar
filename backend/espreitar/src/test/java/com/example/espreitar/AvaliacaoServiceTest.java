@@ -14,6 +14,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class AvaliacaoServiceTest {
@@ -42,13 +43,15 @@ class AvaliacaoServiceTest {
 
     @Test
     void naoDevePermitirAvaliacaoDuplicada() {
+        Avaliacao avaliacao = new Avaliacao();
+        avaliacao.setNota(4);
         when(avaliacaoRepository.existsByUsuarioIdAndMidiaId(1L, 2L))
             .thenReturn(true);
 
         RuntimeException erro = assertThrows(
             RuntimeException.class,
             () -> avaliacaoService.cadastrarAvaliacao(
-                1L, 2L, new Avaliacao()
+                1L, 2L,  avaliacao
             )
         );
 
@@ -59,6 +62,8 @@ class AvaliacaoServiceTest {
 
     @Test
     void deveRejeitarUsuarioInexistente() {
+        Avaliacao avaliacao = new Avaliacao();
+        avaliacao.setNota(4);
         when(avaliacaoRepository.existsByUsuarioIdAndMidiaId(1L, 2L))
             .thenReturn(false);
 
@@ -68,7 +73,7 @@ class AvaliacaoServiceTest {
         RuntimeException erro = assertThrows(
             RuntimeException.class,
             () -> avaliacaoService.cadastrarAvaliacao(
-                1L, 2L, new Avaliacao()
+                1L, 2L,  avaliacao
             )
         );
 
@@ -79,6 +84,8 @@ class AvaliacaoServiceTest {
 
     @Test
     void deveRejeitarMidiaInexistente() {
+        Avaliacao avaliacao = new Avaliacao();
+        avaliacao.setNota(4);
         when(avaliacaoRepository.existsByUsuarioIdAndMidiaId(1L, 2L))
             .thenReturn(false);
 
@@ -93,7 +100,7 @@ class AvaliacaoServiceTest {
         RuntimeException erro = assertThrows(
             RuntimeException.class,
             () -> avaliacaoService.cadastrarAvaliacao(
-                1L, 2L, new Avaliacao()
+                1L, 2L, avaliacao
             )
         );
 
@@ -101,4 +108,44 @@ class AvaliacaoServiceTest {
 
         verify(avaliacaoRepository, never()).save(any());
     }
+    @Test
+    void deveRejeitarNotaMaiorQueCinco() {
+        Avaliacao avaliacao = new Avaliacao();
+        avaliacao.setNota(6);
+
+       IllegalArgumentException erro = assertThrows(
+IllegalArgumentException.class,
+          () -> avaliacaoService.cadastrarAvaliacao(1L, 2L, avaliacao)
+        );
+
+        assertEquals("A nota deve estar entre 0 e 5!", erro.getMessage());
+        verify(avaliacaoRepository, never()).save(any());
+    }
+    @Test
+    void deveRejeitarNotaNegativa() {
+        Avaliacao avaliacao = new Avaliacao();
+        avaliacao.setNota(-1);
+
+    IllegalArgumentException erro = assertThrows(
+IllegalArgumentException.class,
+             () -> avaliacaoService.cadastrarAvaliacao(1L, 2L, avaliacao)
+    );
+
+    assertEquals("A nota deve estar entre 0 e 5!", erro.getMessage());
+    verify(avaliacaoRepository, never()).save(any());
+}
+
+@Test
+void deveRejeitarNotaInvalidaAoAtualizar() {
+    Avaliacao novosDados = new Avaliacao();
+    novosDados.setNota(7);
+
+    IllegalArgumentException erro = assertThrows(
+IllegalArgumentException.class,
+            () -> avaliacaoService.atualizarAvaliacao(1L, novosDados)
+    );
+
+    assertEquals("A nota deve estar entre 0 e 5!", erro.getMessage());
+    verify(avaliacaoRepository, never()).save(any());
+}
 }

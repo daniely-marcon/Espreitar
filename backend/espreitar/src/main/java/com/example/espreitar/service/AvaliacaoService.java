@@ -22,6 +22,13 @@ public class AvaliacaoService {
     private final UsuarioRepository usuarioRepository;
 
     public Avaliacao cadastrarAvaliacao(Long usuarioId, Long midiaId, Avaliacao novaAvaliacao) {
+        if (novaAvaliacao.getNota() == null ||
+            novaAvaliacao.getNota() < 0 ||
+            novaAvaliacao.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+
+       
         if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuarioId, midiaId)) {
             throw new RuntimeException("Usuário já avaliou esta mídia!");
         }
@@ -70,6 +77,11 @@ public class AvaliacaoService {
 
 
     public Avaliacao atualizarAvaliacao(Long id, Avaliacao novosDados) {
+        if (novosDados.getNota() == null ||
+            novosDados.getNota() < 0 ||
+            novosDados.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
         Avaliacao existente = avaliacaoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Avaliação não encontrada!"));
 
