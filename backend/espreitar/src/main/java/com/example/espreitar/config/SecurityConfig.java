@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/Espreitar/**", "/error", "/actuator/health").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/usuarios/admin", "/usuarios/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/midias/externa", "/midias/externa/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/midias", "/midias/**", "/avaliacoes/midia/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/denuncias", "/denuncias/**",

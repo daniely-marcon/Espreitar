@@ -5,28 +5,40 @@ import com.example.espreitar.model.Midia;
 import com.example.espreitar.model.TipoMidia;
 import com.example.espreitar.model.dto.BuscaExterna;
 import com.example.espreitar.model.dto.DetalheExterno;
+import com.example.espreitar.repository.AvaliacaoRepository;
 import com.example.espreitar.repository.MidiaRepository;
 import tools.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class MidiaService {
     private final MidiaRepository midiaRepository;
+    private final AvaliacaoRepository avaliacaoRepository;
     private final RestClient restClient = RestClient.create();
-    @Value("${omdb.api-key:}")
-    private String chaveOmdb;
+    @Value("${tmdb.access-token:}")
+    private String tokenTmdb;
 
     public Midia cadastrarMidia(Midia midia){
         if (midia.getIdExterno() == null || midia.getIdExterno().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecione uma obra encontrada na busca externa.");
+        }
+        if (midia.getNotaMediaExterna() == null
+                || midia.getNotaMediaExterna() < 0
+                || midia.getNotaMediaExterna() > 5
+                || midia.getTotalAvaliacoesExternas() == null
+                || midia.getTotalAvaliacoesExternas() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nota ou total de votos do TMDb inválido.");
         }
         if (midiaRepository.findByIdExternoAndTipo(midia.getIdExterno(), midia.getTipo()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta obra já está cadastrada.");
@@ -50,7 +62,11 @@ public class MidiaService {
 
     public void excluirMidia(Long id) {
         if (!midiaRepository.existsById(id)) {
-            throw new RuntimeException("Mídia não encontrada para exclusão!");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada.");
+        }
+        if (avaliacaoRepository.existsByMidiaId(id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Não é possível excluir uma mídia que já possui avaliações.");
         }
         midiaRepository.deleteById(id);
     }
@@ -79,72 +95,119 @@ public class MidiaService {
     }
 
     public List<BuscaExterna> buscarExterna(String termo, TipoMidia tipo) {
-        if (chaveOmdb.isBlank()) {
+        if (tokenTmdb.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Busca externa indisponível: configure OMDB_API_KEY.");
+                    "Busca externa indisponível: configure TMDB_ACCESS_TOKEN.");
         }
         if (termo == null || termo.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe um título para buscar.");
         }
-        String tipoOmdb = tipo == TipoMidia.SERIE ? "series" : "movie";
-        JsonNode resultado = requisitarOmdb(uri -> uri
-                        .scheme("https").host("www.omdbapi.com").path("/")
-                        .queryParam("apikey", chaveOmdb)
-                        .queryParam("s", termo.trim())
-                        .queryParam("type", tipoOmdb).build());
-        if (resultado == null || !"True".equals(resultado.path("Response").asText())) {
-            if (resultado != null && resultado.path("Error").asText().contains("not found")) {
-                return List.of();
-            }
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    resultado == null ? "A API externa não retornou dados." : resultado.path("Error").asText());
-        }
-        var lista = resultado.path("Search");
+        String tipoTmdb = tipo == TipoMidia.SERIE ? "tv" : "movie";
+        JsonNode resultado = requisitarTmdb(uri -> uri
+                .scheme("https")
+                .host("api.themoviedb.org")
+                .path("/3/search/" + tipoTmdb)
+                .queryParam("query", termo.trim())
+                .queryParam("language", "pt-BR")
+                .queryParam("include_adult", false)
+                .build());
+        var lista = resultado == null ? null : resultado.path("results");
         var encontrados = new java.util.ArrayList<BuscaExterna>();
+        if (lista == null || !lista.isArray()) {
+            return encontrados;
+        }
         for (JsonNode item : lista) {
+            String titulo = item.path(tipo == TipoMidia.SERIE ? "name" : "title").asText("");
+            if (titulo.isBlank()) {
+                continue;
+            }
             encontrados.add(new BuscaExterna(
-                    item.path("imdbID").asText(),
-                    item.path("Title").asText(),
-                    item.path("Year").asText(),
+                    item.path("id").asText(),
+                    titulo,
+                    anoExibicao(item.path(tipo == TipoMidia.SERIE ? "first_air_date" : "release_date").asText(null)),
                     tipo.name(),
-                    urlCartaz(item.path("Poster").asText(null))));
+                    urlCartaz(item.path("poster_path").asText(null)),
+                    notaNaEscalaLocal(item.path("vote_average").asDouble(0)),
+                    item.path("vote_count").asInt(0)));
         }
         return encontrados;
     }
 
     public DetalheExterno buscarDetalheExterno(String idExterno, TipoMidia tipo) {
-        if (chaveOmdb.isBlank()) {
+        if (tokenTmdb.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Busca externa indisponível: configure OMDB_API_KEY.");
+                    "Busca externa indisponível: configure TMDB_ACCESS_TOKEN.");
         }
-        JsonNode item = requisitarOmdb(uri -> uri
-                        .scheme("https").host("www.omdbapi.com").path("/")
-                        .queryParam("apikey", chaveOmdb).queryParam("i", idExterno)
-                        .queryParam("plot", "full").build());
-        if (item == null || !"True".equals(item.path("Response").asText())) {
+        if (idExterno == null || !idExterno.matches("\\d+")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Identificador TMDb inválido.");
+        }
+        String tipoTmdb = tipo == TipoMidia.SERIE ? "tv" : "movie";
+        JsonNode item = requisitarTmdb(uri -> uri
+                .scheme("https")
+                .host("api.themoviedb.org")
+                .path("/3/" + tipoTmdb + "/" + idExterno)
+                .queryParam("language", "pt-BR")
+                .build());
+        if (item == null || item.path("id").isMissingNode()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Obra não encontrada na API externa.");
         }
-        Integer ano = null;
-        try {
-            String anoTexto = item.path("Year").asText().split("–", 2)[0].split("-", 2)[0];
-            ano = Integer.valueOf(anoTexto);
-        } catch (NumberFormatException ignored) {
-            // A API também retorna intervalos ou datas sem ano numérico utilizável.
-        }
-        return new DetalheExterno(idExterno, item.path("Title").asText(), ano,
-                tipo.name(), item.path("Plot").asText(null), urlCartaz(item.path("Poster").asText(null)));
+        String titulo = item.path(tipo == TipoMidia.SERIE ? "name" : "title").asText();
+        String lancamento = item.path(tipo == TipoMidia.SERIE ? "first_air_date" : "release_date").asText(null);
+        return new DetalheExterno(idExterno, titulo, ano(lancamento),
+                tipo.name(), item.path("overview").asText(null),
+                urlCartaz(item.path("poster_path").asText(null)),
+                notaNaEscalaLocal(item.path("vote_average").asDouble(0)),
+                item.path("vote_count").asInt(0));
+    }
+
+    private double notaNaEscalaLocal(double notaTmdb) {
+        return Math.round(Math.max(0, Math.min(10, notaTmdb)) * 50.0) / 100.0;
     }
 
     private String urlCartaz(String url) {
-        return url == null || url.equals("N/A") ? null : url;
+        return url == null || url.isBlank() || url.equals("N/A")
+                ? null
+                : url.startsWith("http") ? url : "https://image.tmdb.org/t/p/w500" + url;
     }
 
-    private JsonNode requisitarOmdb(
-            java.util.function.Function<org.springframework.web.util.UriBuilder, java.net.URI> uriBuilder) {
+    private String anoExibicao(String data) {
+        Integer ano = ano(data);
+        return ano == null ? "" : ano.toString();
+    }
+
+    private Integer ano(String data) {
+        if (data == null || data.length() < 4) {
+            return null;
+        }
         try {
-            return restClient.get().uri(uriBuilder).retrieve().body(JsonNode.class);
-        } catch (org.springframework.web.client.RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A API de catálogo está indisponível.", ex);
+            return Integer.valueOf(data.substring(0, 4));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private JsonNode requisitarTmdb(java.util.function.Function<org.springframework.web.util.UriBuilder, URI> uriBuilder) {
+        try {
+            return restClient.get()
+                    .uri(uriBuilder)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenTmdb)
+                    .header(HttpHeaders.ACCEPT, "application/json")
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 401 || ex.getStatusCode().value() == 403) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "O TMDb recusou o token. Confira o TMDB_ACCESS_TOKEN configurado.", ex);
+            }
+            if (ex.getStatusCode().value() == 429) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Limite de consultas do TMDb atingido. Tente novamente mais tarde.", ex);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "O TMDb retornou um erro ao buscar a mídia.", ex);
+        } catch (org.springframework.web.client.ResourceAccessException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Não foi possível conectar ao TMDb. Verifique a conexão e tente novamente.", ex);
         }
     }
 }

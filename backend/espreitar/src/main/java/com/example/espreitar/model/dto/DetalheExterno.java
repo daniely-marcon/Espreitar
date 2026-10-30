@@ -6,6 +6,8 @@ public record DetalheExterno(
         Integer ano,
         String tipo,
         String sinopse,
-        String cartaz
+        String cartaz,
+        Double notaMedia,
+        Integer totalAvaliacoes
 ) {
 }

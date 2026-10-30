@@ -113,7 +113,7 @@ public class AvaliacaoService {
         Usuario usuario = a.getUsuario();
         Midia midia = a.getMidia();
         return new AvaliacaoResposta(a.getId(), usuario.getId(), usuario.getNome(),
-                usuario.getFotoPerfil(), midia.getId(), midia.getTitulo(), a.getNota(),
+                usuario.getFotoPerfil(), midia.getId(), midia.getTitulo(), midia.getCartaz(), a.getNota(),
                 a.getComentario(), a.isSpoiler(), a.getDataCriacao());
     }
 

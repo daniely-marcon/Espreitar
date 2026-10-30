@@ -54,4 +54,10 @@ public class Midia {
 
     @Column(name = "total_avaliacoes", nullable = false)
     private Integer totalAvaliacoes = 0;
+
+    @Column(name = "nota_media_externa", nullable = false)
+    private Double notaMediaExterna = 0.0;
+
+    @Column(name = "total_avaliacoes_externas", nullable = false)
+    private Integer totalAvaliacoesExternas = 0;
 }

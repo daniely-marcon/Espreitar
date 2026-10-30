@@ -51,7 +51,7 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 
 ### Banco de dados e migrações
 
-O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias e `V3` amplia o armazenamento de fotos de perfil. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil e `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
 
 O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
@@ -72,10 +72,10 @@ O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e 
 Copie `.env.example` para `.env` e informe as integrações necessárias:
 
 * `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
-* `OMDB_API_KEY`: chave da OMDb API para busca de título no painel administrativo. A chave não é necessária para abrir o catálogo local.
+* `TMDB_ACCESS_TOKEN`: token de acesso de leitura da API do TMDb, usado para buscar filmes/séries e obter sinopse, ano e pôster. Não é necessário para abrir o catálogo local.
 * `JWT_SECRET`: segredo aleatório de pelo menos 32 caracteres. Os valores de exemplo são apenas para desenvolvimento e devem ser substituídos.
 
-O Google autentica e cria a conta no primeiro acesso. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no OMDb, escolhe um resultado e confirma; apenas mídias já salvas no banco são exibidas na página inicial. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
+O Google autentica e cria a conta no primeiro acesso. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no TMDb, escolhe um resultado e confirma; o cadastro também importa a nota média (convertida da escala 0–10 para 0–5) e a quantidade de votos externos. A nota da comunidade e a do TMDb são exibidas separadamente para não misturar fontes; enquanto não houver avaliações locais, o catálogo usa a nota TMDb para exibição e filtro. Apenas mídias já salvas no banco são exibidas na página inicial. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
 
 ```sql
 UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';

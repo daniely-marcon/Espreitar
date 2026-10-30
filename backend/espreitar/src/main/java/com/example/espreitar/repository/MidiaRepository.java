@@ -36,9 +36,12 @@ public interface MidiaRepository extends JpaRepository<Midia, Long> {
     @Query("""
             SELECT m FROM Midia m
             WHERE (:tipo IS NULL OR m.tipo = :tipo)
-              AND (:notaMinima IS NULL OR m.notaMedia >= :notaMinima)
+              AND (:notaMinima IS NULL OR
+                   CASE WHEN m.totalAvaliacoes > 0 THEN m.notaMedia ELSE m.notaMediaExterna END >= :notaMinima)
               AND (:titulo IS NULL OR LOWER(m.titulo) LIKE LOWER(CONCAT('%', :titulo, '%')))
-            ORDER BY m.notaMedia DESC, m.totalAvaliacoes DESC, m.titulo ASC
+            ORDER BY CASE WHEN m.totalAvaliacoes > 0 THEN m.notaMedia ELSE m.notaMediaExterna END DESC,
+                     CASE WHEN m.totalAvaliacoes > 0 THEN m.totalAvaliacoes ELSE m.totalAvaliacoesExternas END DESC,
+                     m.titulo ASC
             """)
     List<Midia> buscarCatalogo(
             @Param("titulo") String titulo,

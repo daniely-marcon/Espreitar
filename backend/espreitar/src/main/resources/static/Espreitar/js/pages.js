@@ -3,12 +3,18 @@ const query = new URLSearchParams(location.search);
 let selectedRating = 3;
 let currentMediaId = null;
 let reviewEditing = null;
+let adminMediaEditingId = null;
 let searchTimer = null;
 const loadedReviews = new Map();
 
 const pageContent = () => document.querySelector("#conteudo");
 const prettyDate = (date) => date ? new Date(date).toLocaleDateString("pt-BR") : "";
+const formatRating = (rating) => (Number(rating) || 0).toFixed(2);
 const showError = (error) => toast(error?.message || "Não foi possível concluir a operação.");
+const emptyState = (title, message) => `<div class="estado-vazio">
+  <img src="../midia/sem-resultados.svg" alt="" width="180" height="140">
+  <h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p>
+</div>`;
 
 async function pageHome() {
     try {
@@ -23,15 +29,42 @@ async function pageHome() {
         const media = all.filter((item) =>
             (!term || item.titulo.toLocaleLowerCase("pt-BR").includes(term))
             && (!type || item.tipo === type)
-            && (Number(item.notaMedia) || 0) >= minRating);
-        pageContent().innerHTML = `<main>
-          <h2 class="secao-titulo">${term ? `Resultados para “${escapeHtml(term)}”` : "Em Destaque"}</h2>
-          <div class="grid-filmes">${media.map((item) => `<article class="card" role="link" tabindex="0"
+            && (Number(item.totalAvaliacoes) > 0
+                ? (Number(item.notaMedia) || 0)
+                : (Number(item.notaMediaExterna) || 0)) >= minRating);
+        const destaque = term ? null : media[0];
+        const restante = destaque ? media.slice(1) : media;
+        const catalogo = (items) => items.map((item) => `<article class="card" role="link" tabindex="0"
               onclick="go('filme.html?id=${item.id}')" onkeydown="if(event.key==='Enter')go('filme.html?id=${item.id}')">
               ${poster(item.cartaz, item.titulo)}<h3>${escapeHtml(item.titulo)}</h3>
               <small>${escapeHtml(item.ano || "")} · ${escapeHtml(item.tipo === "SERIE" ? "Série" : "Filme")}</small>
-              <div class="avaliacao">${stars(item.notaMedia)} <span>${Number(item.totalAvaliacoes) || 0}</span></div>
-            </article>`).join("") || "<p>Nenhuma obra cadastrada foi encontrada.</p>"}</div>
+              <div class="avaliacao">${stars(Number(item.totalAvaliacoes) > 0 ? item.notaMedia : item.notaMediaExterna)}
+                <span>${Number(item.totalAvaliacoes) > 0
+                    ? `${Number(item.totalAvaliacoes)} avaliações`
+                    : `${formatRating(item.notaMediaExterna)}/5 · ${Number(item.totalAvaliacoesExternas) || 0} votos TMDb`}</span></div>
+            </article>`).join("");
+        pageContent().innerHTML = `<main>
+          <h2 class="secao-titulo">${term ? `Resultados para “${escapeHtml(term)}”` : "Em Destaque"}</h2>
+          ${destaque ? `<article class="destaque-hero" role="link" tabindex="0"
+              onclick="go('filme.html?id=${destaque.id}')"
+              onkeydown="if(event.key==='Enter')go('filme.html?id=${destaque.id}')">
+              ${poster(destaque.cartaz, destaque.titulo)}
+              <div class="destaque-info"><small>DESTAQUE</small>
+                <h1>${escapeHtml(destaque.titulo)}</h1>
+                <p>${escapeHtml(destaque.sinopse || "Descubra este título no Espreitar.")}</p>
+                <span>${escapeHtml(destaque.ano || "")} · ${destaque.tipo === "SERIE" ? "Série" : "Filme"}</span>
+                <div>${stars(Number(destaque.totalAvaliacoes) > 0 ? destaque.notaMedia : destaque.notaMediaExterna)}
+                  <small>${Number(destaque.totalAvaliacoes) > 0
+                    ? `${Number(destaque.totalAvaliacoes)} avaliações da comunidade`
+                    : `${formatRating(destaque.notaMediaExterna)}/5 · ${Number(destaque.totalAvaliacoesExternas) || 0} votos TMDb`}</small>
+                </div><span class="destaque-cta">Ver detalhes</span>
+              </div>
+            </article>` : ""}
+          ${restante.length ? `<h2 class="secao-titulo">${destaque ? "Mais para assistir" : "Resultados"}</h2>
+          <div class="grid-filmes">${catalogo(restante)}</div>` : !destaque ? `<div class="grid-filmes">${emptyState(
+                term ? "Não encontramos esse título" : "O catálogo ainda está vazio",
+                term ? "Tente outro nome ou ajuste os filtros para ver mais resultados." : "Volte em breve para descobrir novos filmes e séries."
+            )}</div>` : ""}
         </main>`;
     } catch (error) {
         pageContent().innerHTML = "<main><p>Não foi possível carregar o catálogo.</p></main>";
@@ -57,6 +90,8 @@ async function pageFilme() {
             <h2 class="titulo-filme">${escapeHtml(media.titulo)}
               <small class="tipo-filme">(${media.tipo === "SERIE" ? "Série" : "Filme"})</small></h2>
             <div>${stars(media.notaMedia)} <span>${Number(media.totalAvaliacoes) || 0} avaliações</span></div>
+            <div>${stars(media.notaMediaExterna)}
+              <span>${formatRating(media.notaMediaExterna)}/5 · ${Number(media.totalAvaliacoesExternas) || 0} votos no TMDb</span></div>
             <small>${escapeHtml(media.ano || "")}</small>
             <p>${escapeHtml(media.sinopse || "Sinopse indisponível.")}</p>
           </div></div>
@@ -189,6 +224,9 @@ async function pageRevisoes() {
         reviews.forEach((review) => loadedReviews.set(review.id, review));
         pageContent().innerHTML = `<main><h2 class="secao-titulo">Minhas Revisões</h2>
           <div class="grid-revisoes">${reviews.map((review) => `<article class="card-revisao">
+            <a class="review-poster-link" href="filme.html?id=${review.midiaId}" aria-label="Abrir ${escapeHtml(review.tituloMidia)}">
+              ${poster(review.cartaz, review.tituloMidia)}
+            </a>
             <h3>${escapeHtml(review.tituloMidia)} ${stars(review.nota)}</h3>
             <small>${prettyDate(review.dataCriacao)}</small><p>${escapeHtml(review.comentario || "Sem comentário.")}</p>
             <button type="button" class="btn-editar-revisao" data-id="${review.id}" title="Editar">✏</button>
@@ -219,6 +257,9 @@ async function pageDados() {
         const user = await api("/usuarios/me");
         pageContent().innerHTML = `<main><h2 class="secao-titulo centralizado">Atualizar Dados Cadastrados</h2>
           <form class="formulario" id="form-dados">
+            <div class="foto-preview" id="dados-foto-preview">${user.fotoPerfil && safeAvatar(user.fotoPerfil)
+                ? `<img src="${safeAvatar(user.fotoPerfil)}" alt="Foto atual do perfil">`
+                : "<span>Sem foto de perfil</span>"}</div>
             <label for="dados-nome">Nome</label><input id="dados-nome" value="${escapeHtml(user.nome)}" required maxlength="100">
             <label for="dados-email">E-mail</label><input id="dados-email" type="email" value="${escapeHtml(user.email)}" required maxlength="150">
             <label for="dados-senha">Senha</label><input id="dados-senha" type="password" placeholder="Nova senha (opcional)" minlength="8">
@@ -227,6 +268,7 @@ async function pageDados() {
               <button class="enviar" type="submit">Atualizar</button></div>
           </form></main>`;
         $("#form-dados").addEventListener("submit", saveData);
+        $("#dados-foto").addEventListener("change", () => previewProfilePhoto("#dados-foto", "#dados-foto-preview"));
     } catch (error) {
         showError(error);
     }
@@ -288,6 +330,7 @@ function pageRegistro() {
         <label for="senha">Senha</label><input type="password" id="senha" required minlength="8" maxlength="72" autocomplete="new-password">
         <label for="confirmar-senha">Confirmar senha</label><input type="password" id="confirmar-senha" required minlength="8" autocomplete="new-password">
         <label for="registro-foto">Foto de perfil</label><input type="file" id="registro-foto" accept="image/*">
+        <div class="foto-preview" id="registro-foto-preview"><span>Prévia da foto de perfil</span></div>
       </div>
       <div class="google-signin" id="google-button"></div>
       <div class="acoes"><button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
@@ -295,7 +338,24 @@ function pageRegistro() {
       <p>Já tem conta? <a href="login.html">Login</a></p>
     </form></main>`;
     $("#form-registro").addEventListener("submit", registrar);
+    $("#registro-foto").addEventListener("change", () => previewProfilePhoto("#registro-foto", "#registro-foto-preview"));
     setupGoogleSignIn();
+}
+
+async function previewProfilePhoto(inputSelector, previewSelector) {
+    const preview = $(previewSelector);
+    const input = $(inputSelector);
+    if (!input.files?.length) {
+        preview.innerHTML = "<span>Sem foto selecionada</span>";
+        return;
+    }
+    try {
+        const image = await carregarFoto(input);
+        preview.innerHTML = `<img src="${safeAvatar(image)}" alt="Prévia da foto de perfil">`;
+    } catch (error) {
+        preview.innerHTML = "<span>Não foi possível gerar a prévia.</span>";
+        showError(error);
+    }
 }
 
 async function registrar(event) {
@@ -392,7 +452,7 @@ async function setupGoogleSignIn() {
 }
 
 const adminMarkup = (title, body) => `<main><div class="painel">
-  <nav><a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Novo filme / série</a></nav>
+  <nav><a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a></nav>
   <section><h2 class="secao-titulo">${title}</h2>${body}</section></div></main>`;
 
 async function pageDenuncias() {
@@ -433,24 +493,39 @@ async function removerComentario(reportId, reviewId) {
     }
 }
 
-function pageFilmes() {
+async function pageFilmes() {
     if (!requireAdmin()) return;
-    pageContent().innerHTML = adminMarkup("Adicionar ao Catálogo", `<form class="formulario" id="form-filme">
+    adminMediaEditingId = null;
+    window.selectedExternalMedia = null;
+    pageContent().innerHTML = adminMarkup("Gerenciar Catálogo", `<form class="formulario formulario-admin" id="form-filme">
       <label for="filme-tipo">Tipo</label><select id="filme-tipo"><option value="FILME">Filme</option><option value="SERIE">Série</option></select>
-      <label for="filme-titulo">Título</label><input id="filme-titulo" autocomplete="off" required>
+      <label for="filme-titulo">Título</label><input id="filme-titulo" autocomplete="off" required maxlength="255">
       <div id="resultados-api" class="resultados-api" role="listbox"></div>
-      <label for="filme-ano">Ano</label><input id="filme-ano" type="number" readonly>
-      <label for="filme-sinopse">Sinopse</label><textarea id="filme-sinopse" rows="4" readonly></textarea>
-      <label for="filme-poster">Pôster (URL)</label><input id="filme-poster" type="url" readonly>
-      <div class="acoes"><button class="enviar" id="salvar-filme" type="submit" disabled>Adicionar</button></div>
-    </form>`);
+      <div id="filme-preview" class="preview-midia" hidden></div>
+      <label for="filme-ano">Ano</label><input id="filme-ano" type="number">
+      <label for="filme-sinopse">Sinopse</label><textarea id="filme-sinopse" rows="4"></textarea>
+      <label for="filme-poster">Pôster (URL)</label><input id="filme-poster" type="url" maxlength="500">
+      <label for="filme-nota-media">Nota média do TMDb (escala de 0 a 5)</label>
+      <input id="filme-nota-media" type="number" min="0" max="5" step="0.01" readonly>
+      <label for="filme-total-avaliacoes">Total de votos no TMDb</label>
+      <input id="filme-total-avaliacoes" type="number" min="0" readonly>
+      <div class="acoes"><button class="enviar" id="salvar-filme" type="submit" disabled>Adicionar ao catálogo</button>
+        <button class="cancelar" id="cancelar-edicao-filme" type="button" hidden>Cancelar edição</button></div>
+    </form><section class="admin-lista"><h3>Obras cadastradas</h3><div id="catalogo-admin">Carregando catálogo...</div></section>`);
     $("#filme-titulo").addEventListener("input", buscarExternaComAtraso);
     $("#filme-tipo").addEventListener("change", buscarExternaComAtraso);
     $("#form-filme").addEventListener("submit", addConteudo);
+    $("#filme-poster").addEventListener("input", () => atualizarPreviewMedia($("#filme-poster").value, $("#filme-titulo").value));
+    $("#cancelar-edicao-filme").addEventListener("click", pageFilmes);
+    await carregarCatalogoAdmin();
 }
 
 function buscarExternaComAtraso() {
+    if (adminMediaEditingId) return;
     clearTimeout(searchTimer);
+    window.selectedExternalMedia = null;
+    $("#filme-preview").hidden = true;
+    $("#salvar-filme").disabled = true;
     searchTimer = setTimeout(buscarExterna, 300);
 }
 
@@ -467,13 +542,14 @@ async function buscarExterna() {
         const items = await api(`/midias/externa?q=${encodeURIComponent(term)}&tipo=${type}`);
         results.innerHTML = items.map((item) => `<button type="button" class="resultado-filme" role="option"
           data-id="${escapeHtml(item.idExterno)}" data-type="${escapeHtml(item.tipo)}">
-          ${escapeHtml(item.titulo)} <small>${escapeHtml(item.ano)}</small></button>`).join("")
-            || "<p>Nenhum resultado da API externa.</p>";
+          ${item.cartaz ? poster(item.cartaz, item.titulo) : ""}
+          <span>${escapeHtml(item.titulo)} <small>${escapeHtml(item.ano)}</small></span></button>`).join("")
+            || emptyState("Não encontramos esse título", "Confira a escrita ou tente buscar pelo título original.");
         results.querySelectorAll(".resultado-filme").forEach((button) => {
             button.addEventListener("click", () => selecionarExterno(button.dataset.id, button.dataset.type));
         });
     } catch (error) {
-        results.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+        results.innerHTML = emptyState("Não foi possível fazer a busca", error.message);
     }
 }
 
@@ -484,7 +560,12 @@ async function selecionarExterno(id, type) {
         $("#filme-ano").value = media.ano || "";
         $("#filme-sinopse").value = media.sinopse || "";
         $("#filme-poster").value = media.cartaz || "";
+        $("#filme-nota-media").value = media.notaMedia;
+        $("#filme-total-avaliacoes").value = media.totalAvaliacoes;
         $("#resultados-api").innerHTML = "";
+        $("#filme-preview").hidden = false;
+        $("#filme-preview").innerHTML = `<strong>Prévia — confirme antes de adicionar</strong>${poster(media.cartaz, media.titulo)}
+          <span>${escapeHtml(media.titulo)}${media.ano ? ` (${escapeHtml(media.ano)})` : ""}</span>`;
         $("#salvar-filme").disabled = false;
         window.selectedExternalMedia = media;
     } catch (error) {
@@ -495,22 +576,118 @@ async function selecionarExterno(id, type) {
 async function addConteudo(event) {
     event.preventDefault();
     const media = window.selectedExternalMedia;
-    if (!media) {
+    if (!adminMediaEditingId && !media) {
         toast("Escolha uma obra na lista da busca.");
         return;
     }
+    const body = adminMediaEditingId ? {
+        tipo: $("#filme-tipo").value,
+        titulo: $("#filme-titulo").value.trim(),
+        ano: $("#filme-ano").value ? Number($("#filme-ano").value) : null,
+        sinopse: $("#filme-sinopse").value.trim(),
+        cartaz: $("#filme-poster").value.trim() || null,
+    } : {
+        idExterno: media.idExterno, tipo: media.tipo, titulo: media.titulo,
+        ano: media.ano, sinopse: media.sinopse, cartaz: media.cartaz,
+        notaMediaExterna: media.notaMedia,
+        totalAvaliacoesExternas: media.totalAvaliacoes,
+    };
     try {
-        await api("/midias", {
-            method: "POST",
-            body: {
-                idExterno: media.idExterno, tipo: media.tipo, titulo: media.titulo,
-                ano: media.ano, sinopse: media.sinopse, cartaz: media.cartaz,
-            },
+        await api(adminMediaEditingId ? `/midias/${adminMediaEditingId}` : "/midias", {
+            method: adminMediaEditingId ? "PUT" : "POST",
+            body,
         });
         window.selectedExternalMedia = null;
-        toast("Mídia adicionada ao catálogo.");
-        pageFilmes();
+        toast(adminMediaEditingId ? "Mídia atualizada." : "Mídia adicionada ao catálogo.");
+        await pageFilmes();
     } catch (error) {
+        showError(error);
+    }
+}
+
+function atualizarPreviewMedia(url, title) {
+    const preview = $("#filme-preview");
+    if (!preview) return;
+    preview.hidden = false;
+    preview.innerHTML = `<strong>${adminMediaEditingId ? "Prévia da alteração" : "Prévia — confirme antes de adicionar"}</strong>
+      ${poster(url, title)}<span>${escapeHtml(title || "Título da mídia")}</span>`;
+}
+
+async function carregarCatalogoAdmin() {
+    try {
+        const catalog = await api("/midias");
+        $("#catalogo-admin").innerHTML = catalog.length
+            ? `<div class="tabela-admin"><div class="linha-admin cabecalho-admin"><span>Pôster</span><span>Obra</span><span>Avaliações</span><span>Ações</span></div>
+              ${catalog.map((item) => `<div class="linha-admin">
+                ${poster(item.cartaz, item.titulo)}
+                <span><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.ano || "")} · ${item.tipo === "SERIE" ? "Série" : "Filme"}</small></span>
+                <span>${Number(item.totalAvaliacoes) || 0}</span>
+                <span class="acoes-admin"><button type="button" data-edit-media="${item.id}">Editar</button>
+                  <button type="button" class="botao-remover" data-delete-media="${item.id}">Excluir</button></span>
+              </div>`).join("")}</div>`
+            : "<p>O catálogo ainda não tem obras.</p>";
+        $("#catalogo-admin").querySelectorAll("[data-edit-media]").forEach((button) => {
+            button.addEventListener("click", () => editarMidiaAdmin(catalog.find((item) => item.id === Number(button.dataset.editMedia))));
+        });
+        $("#catalogo-admin").querySelectorAll("[data-delete-media]").forEach((button) => {
+            button.addEventListener("click", () => excluirMidiaAdmin(button.dataset.deleteMedia));
+        });
+    } catch (error) {
+        $("#catalogo-admin").textContent = "Não foi possível carregar o catálogo.";
+        showError(error);
+    }
+}
+
+function editarMidiaAdmin(media) {
+    if (!media) return;
+    adminMediaEditingId = media.id;
+    window.selectedExternalMedia = null;
+    $("#filme-tipo").value = media.tipo;
+    $("#filme-titulo").value = media.titulo;
+    $("#filme-ano").value = media.ano || "";
+    $("#filme-sinopse").value = media.sinopse || "";
+    $("#filme-poster").value = media.cartaz || "";
+    $("#filme-nota-media").value = media.notaMediaExterna || 0;
+    $("#filme-total-avaliacoes").value = media.totalAvaliacoesExternas || 0;
+    $("#resultados-api").innerHTML = "";
+    $("#filme-preview").hidden = false;
+    atualizarPreviewMedia(media.cartaz, media.titulo);
+    $("#salvar-filme").textContent = "Salvar alterações";
+    $("#salvar-filme").disabled = false;
+    $("#cancelar-edicao-filme").hidden = false;
+    $("#form-filme").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function excluirMidiaAdmin(id) {
+    if (!confirm("Excluir esta mídia do catálogo? Obras com avaliações não podem ser excluídas.")) return;
+    try {
+        await api(`/midias/${encodeURIComponent(id)}`, { method: "DELETE" });
+        toast("Mídia excluída.");
+        await carregarCatalogoAdmin();
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function pageUsuariosAdmin() {
+    if (!requireAdmin()) return;
+    pageContent().innerHTML = adminMarkup("Usuários", '<div id="usuarios-admin">Carregando usuários...</div>');
+    try {
+        const users = await api("/usuarios/admin");
+        $("#usuarios-admin").innerHTML = users.length
+            ? `<div class="tabela-admin usuarios-admin"><div class="linha-admin cabecalho-admin"><span>Perfil</span><span>Usuário</span><span>Conta</span><span>Atividade</span></div>
+              ${users.map((user) => {
+                  const photo = safeAvatar(user.fotoPerfil);
+                  return `<article class="linha-admin">
+                    <div class="avatar-admin">${photo ? `<img src="${photo}" alt="">` : escapeHtml(user.nome.slice(0, 1))}</div>
+                    <span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.email)}</small></span>
+                    <span>${user.perfil === "ADMIN" ? "Administrador" : "Usuário"}<small>${user.provedor === "GOOGLE" ? "Google" : "Local"} · desde ${prettyDate(user.dataCriacao)}</small></span>
+                    <span>${Number(user.totalAvaliacoes) || 0} revisões</span>
+                  </article>`;
+              }).join("")}</div>`
+            : "<p>Nenhuma conta cadastrada.</p>";
+    } catch (error) {
+        $("#usuarios-admin").textContent = "Não foi possível carregar a lista de usuários.";
         showError(error);
     }
 }
@@ -524,6 +701,7 @@ const pages = {
     registro: pageRegistro,
     denuncias: pageDenuncias,
     filmes: pageFilmes,
+    usuarios: pageUsuariosAdmin,
 };
 const pageRenderer = pages[pageName] || pageHome;
 setRender(pageRenderer);

@@ -9,6 +9,7 @@ public record AvaliacaoResposta(
         String fotoPerfil,
         Long midiaId,
         String tituloMidia,
+        String cartaz,
         Integer nota,
         String comentario,
         boolean spoiler,

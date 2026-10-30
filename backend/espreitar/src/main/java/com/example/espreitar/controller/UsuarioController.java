@@ -3,6 +3,7 @@ package com.example.espreitar.controller;
 import com.example.espreitar.model.dto.AtualizarPerfil;
 import com.example.espreitar.model.dto.AuthResposta;
 import com.example.espreitar.model.dto.UsuarioResumo;
+import com.example.espreitar.model.dto.UsuarioAdminResumo;
 import com.example.espreitar.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -21,6 +22,11 @@ public class UsuarioController {
 
     public UsuarioController(UsuarioService usuarioService) {
         this.usuarioService = usuarioService;
+    }
+
+    @GetMapping("/admin")
+    public List<UsuarioAdminResumo> listarParaAdmin() {
+        return usuarioService.listarUsuariosParaAdmin();
     }
 
     @GetMapping("/me")

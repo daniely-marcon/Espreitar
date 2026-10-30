@@ -19,6 +19,8 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, Long> {
 
     boolean existsByUsuarioIdAndMidiaId(Long usuarioId, Long midiaId);
 
+    boolean existsByMidiaId(Long midiaId);
+
     Optional<Avaliacao> findByUsuarioIdAndMidiaId(Long usuarioId, Long midiaId);
 
     List<Avaliacao> findByMidiaIdOrderByDataCriacaoDesc(Long midiaId);

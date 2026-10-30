@@ -5,6 +5,7 @@ const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 })[char]);
 const safeImage = (value) => {
     if (!value) return "";
+    if (value.startsWith("data:image/jpeg;base64,")) return escapeHtml(value);
     try {
         const url = new URL(value, location.origin);
         return url.protocol === "https:" || url.origin === location.origin ? escapeHtml(url.href) : "";
@@ -103,25 +104,33 @@ function header() {
       </form>
       <aside class="acesso">${user
         ? `<button class="btn-icone" id="notificacao" type="button" aria-label="Notificações">♢</button>
+           ${user.fotoPerfil && safeImage(user.fotoPerfil)
+                ? `<img class="foto-usuario" src="${safeImage(user.fotoPerfil)}" alt="Foto de ${escapeHtml(user.nome)}">`
+                : ""}
            <div class="usuario"><div class="saudacao">Olá, ${escapeHtml(user.nome)}</div></div>
            <button class="btn-icone" id="botao-menu" type="button" aria-label="Menu">⋮</button>
            <div class="menu-suspenso" id="menu-opcoes" hidden>
              <a href="dados.html">Alterar dados</a><a href="user.html">Minhas revisões</a>
-             ${user.perfil === "ADMIN" ? '<a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Novo filme / série</a>' : ""}
+             ${user.perfil === "ADMIN" ? '<a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a>' : ""}
              <button type="button" id="sair">Sair</button>
            </div><div class="menu-suspenso" id="lista-notificacoes" hidden></div>`
         : `<button class="registrar" type="button" onclick="go('register.html')">Registrar</button>
            <button class="enviar" type="button" onclick="go('login.html')">Login</button>`}
       </aside>
     </header>`;
-    $("#pesquisa")?.addEventListener("submit", (event) => {
-        event.preventDefault();
+    const buscarCatalogo = () => {
         const query = new URLSearchParams();
         if ($("#categoria").value) query.set("type", $("#categoria").value);
         if ($("#classificacao").value) query.set("rating", $("#classificacao").value);
         if ($("#campo-pesquisa").value.trim()) query.set("q", $("#campo-pesquisa").value.trim());
-        go(`index.html?${query}`);
+        go(`index.html${query.size ? `?${query}` : ""}`);
+    };
+    $("#pesquisa")?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        buscarCatalogo();
     });
+    $("#categoria")?.addEventListener("change", buscarCatalogo);
+    $("#classificacao")?.addEventListener("change", buscarCatalogo);
     $("#botao-menu")?.addEventListener("click", () => toggleMenu("menu-opcoes"));
     $("#sair")?.addEventListener("click", logout);
     $("#notificacao")?.addEventListener("click", mostrarNotificacoes);

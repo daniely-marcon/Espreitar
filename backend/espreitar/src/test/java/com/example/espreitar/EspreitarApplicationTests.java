@@ -9,6 +9,7 @@ import com.example.espreitar.model.dto.CadastroUsuario;
 import com.example.espreitar.service.AutenticacaoAplicacaoService;
 import com.example.espreitar.service.AvaliacaoService;
 import com.example.espreitar.service.DenunciaService;
+import com.example.espreitar.service.MidiaService;
 import com.example.espreitar.repository.AvaliacaoRepository;
 import com.example.espreitar.repository.MidiaRepository;
 import com.example.espreitar.repository.UsuarioRepository;
@@ -21,6 +22,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +57,9 @@ class EspreitarApplicationTests {
 
 	@Autowired
 	private DenunciaService denunciaService;
+
+	@Autowired
+	private MidiaService midiaService;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -107,10 +112,33 @@ class EspreitarApplicationTests {
 	}
 
 	@Test
+	@WithMockUser(roles = "ADMIN")
+	void administradorPodeConsultarResumoDeUsuariosSemDadosSecretos() throws Exception {
+		Usuario usuario = usuario("resumo.admin@example.com");
+		Midia midia = midiaRepository.save(midia("Obra para resumo"));
+		avaliacaoService.cadastrar(usuario.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(5, "Gostei", false));
+
+		mockMvc.perform(get("/usuarios/admin"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[?(@.email == 'resumo.admin@example.com')].totalAvaliacoes").value(1))
+				.andExpect(jsonPath("$[?(@.email == 'resumo.admin@example.com')].senha").doesNotExist())
+				.andExpect(jsonPath("$[?(@.email == 'resumo.admin@example.com')].googleId").doesNotExist());
+	}
+
+	@Test
+	void painelAdminDeUsuariosExigeAutenticacao() throws Exception {
+		mockMvc.perform(get("/usuarios/admin"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
 	void avaliacaoDoUsuarioAparecePrimeiroEAtualizaMedia() {
 		Usuario primeiraPessoa = usuario("primeira.avaliacao@example.com");
 		Usuario segundaPessoa = usuario("segunda.avaliacao@example.com");
 		Midia midia = midiaRepository.save(midia("Obra de teste"));
+		midia.setCartaz("https://image.tmdb.org/t/p/w500/teste.jpg");
+		midiaRepository.save(midia);
 
 		avaliacaoService.cadastrar(primeiraPessoa.getEmail(), midia.getId(),
 				new AvaliacaoEntrada(2, "Primeiro comentário", false));
@@ -119,6 +147,7 @@ class EspreitarApplicationTests {
 
 		var lista = avaliacaoService.listarDaMidia(midia.getId(), segundaPessoa.getEmail(), null);
 		assertEquals(avaliacaoDaPessoaLogada.id(), lista.get(0).id());
+		assertEquals(midia.getCartaz(), lista.get(0).cartaz());
 		assertEquals(3.0, midiaRepository.findById(midia.getId()).orElseThrow().getNotaMedia(), 0.0001);
 	}
 
@@ -146,6 +175,19 @@ class EspreitarApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").isNotEmpty())
 				.andExpect(jsonPath("$.usuario.senha").doesNotExist());
+	}
+
+	@Test
+	void cadastroDaMidiaPersisteNotaEQuantidadeDeVotosDoTmdb() {
+		Midia midia = midia("Obra com nota externa");
+		midia.setNotaMediaExterna(4.35);
+		midia.setTotalAvaliacoesExternas(12500);
+
+		Midia salva = midiaService.cadastrarMidia(midia);
+		Midia recarregada = midiaRepository.findById(salva.getId()).orElseThrow();
+
+		assertEquals(4.35, recarregada.getNotaMediaExterna(), 0.0001);
+		assertEquals(12500, recarregada.getTotalAvaliacoesExternas());
 	}
 
 	private Usuario usuario(String email) {

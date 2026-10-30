@@ -4,6 +4,7 @@ import com.example.espreitar.model.Usuario;
 import com.example.espreitar.model.dto.AtualizarPerfil;
 import com.example.espreitar.model.dto.AuthResposta;
 import com.example.espreitar.model.dto.UsuarioResumo;
+import com.example.espreitar.model.dto.UsuarioAdminResumo;
 import com.example.espreitar.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,11 @@ public class UsuarioService {
     @Transactional(readOnly = true)
     public UsuarioResumo buscarPerfil(String email) {
         return resumo(buscarUsuarioEmail(email));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioAdminResumo> listarUsuariosParaAdmin() {
+        return usuarioRepository.listarResumoAdmin();
     }
 
     @Transactional

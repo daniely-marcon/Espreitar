@@ -5,6 +5,8 @@ public record BuscaExterna(
         String titulo,
         String ano,
         String tipo,
-        String cartaz
+        String cartaz,
+        Double notaMedia,
+        Integer totalAvaliacoes
 ) {
 }
