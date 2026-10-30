@@ -5,46 +5,66 @@ import com.example.espreitar.model.Midia;
 import com.example.espreitar.model.Solicitacao;
 import com.example.espreitar.model.StatusSolicitacao;
 import com.example.espreitar.model.Usuario;
+import com.example.espreitar.model.dto.SolicitacaoEntrada;
+import com.example.espreitar.model.dto.SolicitacaoResposta;
 import com.example.espreitar.repository.AvaliacaoRepository;
 import com.example.espreitar.repository.MidiaRepository;
 import com.example.espreitar.repository.SolicitacaoRepository;
 import com.example.espreitar.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class SolicitacaoService {
-
     private final SolicitacaoRepository solicitacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final MidiaRepository midiaRepository;
     private final AvaliacaoRepository avaliacaoRepository;
 
-    public Solicitacao criarSolicitacao(Long usuarioId, Solicitacao solicitacao) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado!"));
-
+    @Transactional
+    public SolicitacaoResposta criarSolicitacao(String email, SolicitacaoEntrada dados) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        Solicitacao solicitacao = new Solicitacao();
         solicitacao.setUsuario(usuario);
+        solicitacao.setTitulo(dados.titulo().trim());
+        solicitacao.setAno(dados.ano());
+        solicitacao.setTipo(dados.tipo());
+        solicitacao.setSinopse(dados.sinopse());
+        solicitacao.setNota(dados.nota());
+        solicitacao.setComentario(dados.comentario());
+        solicitacao.setSpoiler(dados.spoiler());
         solicitacao.setStatus(StatusSolicitacao.PENDENTE);
-
-        return solicitacaoRepository.save(solicitacao);
+        return resposta(solicitacaoRepository.save(solicitacao));
     }
 
-    public List<Solicitacao> listarPorStatus(StatusSolicitacao status) {
-        return solicitacaoRepository.findByStatusOrderByDataCriacaoAsc(status);
+    @Transactional(readOnly = true)
+    public List<SolicitacaoResposta> listarPorStatus(StatusSolicitacao status) {
+        return solicitacaoRepository.findByStatusOrderByDataCriacaoAsc(status)
+                .stream().map(this::resposta).toList();
     }
 
-    public List<Solicitacao> listarPorUsuario(Long usuarioId) {
-        return solicitacaoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuarioId);
+    @Transactional(readOnly = true)
+    public List<SolicitacaoResposta> listarDoUsuario(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        return solicitacaoRepository.findByUsuarioIdOrderByDataCriacaoDesc(usuario.getId())
+                .stream().map(this::resposta).toList();
     }
 
+    @Transactional
     public Midia aprovarSolicitacao(Long solicitacaoId) {
-        Solicitacao solicitacao = solicitacaoRepository.findById(solicitacaoId)
-                .orElseThrow(() -> new RuntimeException("Solicitação não encontrada!"));
-
+        Solicitacao solicitacao = buscar(solicitacaoId);
+        if (midiaRepository.existsByTituloIgnoreCaseAndAnoAndTipo(
+                solicitacao.getTitulo(), solicitacao.getAno(), solicitacao.getTipo())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Essa mídia já existe no catálogo.");
+        }
         Midia novaMidia = new Midia();
         novaMidia.setTitulo(solicitacao.getTitulo());
         novaMidia.setAno(solicitacao.getAno());
@@ -60,29 +80,32 @@ public class SolicitacaoService {
             avaliacao.setComentario(solicitacao.getComentario());
             avaliacao.setSpoiler(solicitacao.isSpoiler());
             avaliacaoRepository.save(avaliacao);
-
-            midiaSalva.setNotaMedia(Double.valueOf(solicitacao.getNota()));
+            midiaSalva.setNotaMedia(solicitacao.getNota().doubleValue());
             midiaSalva.setTotalAvaliacoes(1);
-            midiaRepository.save(midiaSalva);
         }
-
         Usuario usuario = solicitacao.getUsuario();
-        usuario.getNotificacoes().add("Sua solicitação para a obra '" + solicitacao.getTitulo() + "' foi APROVADA e já está disponível!");
-        usuarioRepository.save(usuario);
-
+        usuario.getNotificacoes().add("Sua solicitação para '" + solicitacao.getTitulo()
+                + "' foi aprovada e já está disponível.");
         solicitacaoRepository.delete(solicitacao);
-
-        return midiaSalva;
+        return midiaRepository.save(midiaSalva);
     }
 
+    @Transactional
     public void rejeitarSolicitacao(Long solicitacaoId) {
-        Solicitacao solicitacao = solicitacaoRepository.findById(solicitacaoId)
-                .orElseThrow(() -> new RuntimeException("Solicitação não encontrada!"));
-
-        Usuario usuario = solicitacao.getUsuario();
-        usuario.getNotificacoes().add("Infelizmente sua solicitação para a obra '" + solicitacao.getTitulo() + "' foi rejeitada.");
-        usuarioRepository.save(usuario);
-
+        Solicitacao solicitacao = buscar(solicitacaoId);
+        solicitacao.getUsuario().getNotificacoes().add(
+                "Sua solicitação para '" + solicitacao.getTitulo() + "' foi rejeitada.");
         solicitacaoRepository.delete(solicitacao);
+    }
+
+    private Solicitacao buscar(Long id) {
+        return solicitacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
+    }
+
+    private SolicitacaoResposta resposta(Solicitacao s) {
+        return new SolicitacaoResposta(s.getId(), s.getUsuario().getId(), s.getUsuario().getNome(),
+                s.getTitulo(), s.getAno(), s.getTipo(), s.getSinopse(), s.getStatus(),
+                s.getNota(), s.getComentario(), s.isSpoiler(), s.getDataCriacao());
     }
 }

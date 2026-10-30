@@ -51,7 +51,7 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 
 ### Banco de dados e migrações
 
-O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; a migração inicial `V1__criar_schema_inicial.sql` cria as tabelas das entidades. O Hibernate usa `ddl-auto=validate` para conferir o esquema, sem criar ou alterar tabelas por conta própria.
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias e `V3` amplia o armazenamento de fotos de perfil. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
 
 O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
@@ -67,10 +67,36 @@ O arquivo `.env` fornece as credenciais ao Compose. Para iniciar o backend, abra
 
 A configuração local usa `DB_PASSWORD` quando ela está definida; caso contrário, usa `123`. O backend usa a porta `8081` para evitar conflito com a porta `8080` já ocupada neste ambiente. Para iniciar na porta padrão do Spring, remova `server.port=8081` de `application.properties`.
 
-O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica a `V1`; nas seguintes, consulta `flyway_schema_history` e executa apenas migrações ainda não aplicadas.
+O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica as migrações pendentes; nas seguintes, consulta `flyway_schema_history` e executa apenas as novas.
+
+Copie `.env.example` para `.env` e informe as integrações necessárias:
+
+* `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
+* `OMDB_API_KEY`: chave da OMDb API para busca de título no painel administrativo. A chave não é necessária para abrir o catálogo local.
+* `JWT_SECRET`: segredo aleatório de pelo menos 32 caracteres. Os valores de exemplo são apenas para desenvolvimento e devem ser substituídos.
+
+O Google autentica e cria a conta no primeiro acesso. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no OMDb, escolhe um resultado e confirma; apenas mídias já salvas no banco são exibidas na página inicial. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
+
+```sql
+UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
+```
+
+Saia e entre novamente para receber um token com a nova permissão. Avaliações são únicas por pessoa e mídia; cada pessoa também pode enviar apenas uma denúncia por avaliação. Denúncias não removem conteúdo automaticamente: a decisão fica com a moderação.
 
 Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. O `.env` é local e não deve ser enviado ao Git; a senha `123` serve apenas para desenvolvimento local e deve ser substituída por uma senha forte antes de compartilhar o ambiente.
 
+### Testes
+
+Execute os testes automatizados no diretório `backend/espreitar`:
+
+```bash
+./mvnw test
+```
+
+Os testes de integração usam o MySQL configurado em `application.properties` e aplicam as migrações do Flyway. Inicie o banco com Docker Compose e configure `DB_USER` e `DB_PASSWORD` antes de executar `./mvnw test`. Eles cobrem cadastro e login local, carregamento do frontend e catálogo, prioridade da revisão da pessoa logada, cálculo da média e limite de denúncias.
+
+Para popular o banco de desenvolvimento com registros fictícios e testar a busca no frontend, execute o fixture [catalogo-demo.sql](./backend/espreitar/src/test/resources/fixtures/catalogo-demo.sql) no banco `espreitar`. Use esses dados apenas em desenvolvimento/teste; eles não são inseridos automaticamente em produção.
+
 ### Estado atual
 
-Até este marco, o backend tem entidades JPA, repositórios e a migração inicial do Flyway. A migração `V1` foi aplicada e validada no banco `espreitar`. Ainda faltam serviços, controladores/endpoints e a interface própria; a tela de login atual é a página padrão do Spring Security.
+O frontend está servido pelo próprio Spring Boot em `http://localhost:8081/` e consome a API no mesmo host. A API usa JWT para autenticação, autorização por perfil, validação de dados e migrações Flyway.

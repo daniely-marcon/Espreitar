@@ -32,4 +32,17 @@ public interface MidiaRepository extends JpaRepository<Midia, Long> {
             @Param("tipo") TipoMidia tipo,
             @Param("notaMinima") Double notaMinima
     );
+
+    @Query("""
+            SELECT m FROM Midia m
+            WHERE (:tipo IS NULL OR m.tipo = :tipo)
+              AND (:notaMinima IS NULL OR m.notaMedia >= :notaMinima)
+              AND (:titulo IS NULL OR LOWER(m.titulo) LIKE LOWER(CONCAT('%', :titulo, '%')))
+            ORDER BY m.notaMedia DESC, m.totalAvaliacoes DESC, m.titulo ASC
+            """)
+    List<Midia> buscarCatalogo(
+            @Param("titulo") String titulo,
+            @Param("tipo") TipoMidia tipo,
+            @Param("notaMinima") Double notaMinima
+    );
 }

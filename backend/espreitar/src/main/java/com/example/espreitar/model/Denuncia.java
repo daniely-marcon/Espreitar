@@ -10,7 +10,8 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "denuncia")
+@Table(name = "denuncia", uniqueConstraints = @UniqueConstraint(
+        name = "uk_denuncia_usuario_avaliacao", columnNames = {"usuario_id", "avaliacao_id"}))
 @Getter
 @Setter
 @NoArgsConstructor

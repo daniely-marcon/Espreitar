@@ -1,8 +1,12 @@
 package com.example.espreitar.controller;
 
-import com.example.espreitar.model.Avaliacao;
+import com.example.espreitar.model.dto.AvaliacaoEntrada;
+import com.example.espreitar.model.dto.AvaliacaoResposta;
 import com.example.espreitar.service.AvaliacaoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,32 +15,44 @@ import java.util.List;
 @RequestMapping("/avaliacoes")
 @RequiredArgsConstructor
 public class AvaliacaoController {
-
     private final AvaliacaoService avaliacaoService;
 
-    @PostMapping
-    public Avaliacao cadastrar(
-            @RequestParam Long usuarioId,
-            @RequestParam Long midiaId,
-            @RequestBody Avaliacao avaliacao) {
-        return avaliacaoService.cadastrarAvaliacao(usuarioId, midiaId, avaliacao);
+    @PostMapping("/midia/{midiaId}")
+    public AvaliacaoResposta cadastrar(
+            Authentication autenticacao,
+            @PathVariable Long midiaId,
+            @Valid @RequestBody AvaliacaoEntrada dados) {
+        return avaliacaoService.cadastrar(autenticacao.getName(), midiaId, dados);
     }
 
     @GetMapping("/midia/{midiaId}")
-    public List<Avaliacao> listarPorMidia(
+    public List<AvaliacaoResposta> listarPorMidia(
             @PathVariable Long midiaId,
-            @RequestParam(required = false) Long usuarioIdLogado,
+            Authentication autenticacao,
             @RequestParam(required = false) Boolean spoiler) {
-        return avaliacaoService.listarAvaliacoesDaMidia(midiaId, usuarioIdLogado, spoiler);
+        return avaliacaoService.listarDaMidia(
+                midiaId, autenticacao == null ? null : autenticacao.getName(), spoiler);
+    }
+
+    @GetMapping("/minhas")
+    public List<AvaliacaoResposta> listarMinhas(Authentication autenticacao) {
+        return avaliacaoService.listarDoUsuario(autenticacao.getName());
     }
 
     @PutMapping("/{id}")
-    public Avaliacao atualizar(@PathVariable Long id, @RequestBody Avaliacao avaliacao) {
-        return avaliacaoService.atualizarAvaliacao(id, avaliacao);
+    public AvaliacaoResposta atualizar(
+            Authentication autenticacao, @PathVariable Long id,
+            @Valid @RequestBody AvaliacaoEntrada dados) {
+        return avaliacaoService.atualizar(autenticacao.getName(), isAdmin(autenticacao), id, dados);
     }
 
     @DeleteMapping("/{id}")
-    public void excluir(@PathVariable Long id) {
-        avaliacaoService.excluirAvaliacao(id);
+    public void excluir(Authentication autenticacao, @PathVariable Long id) {
+        avaliacaoService.excluir(autenticacao.getName(), isAdmin(autenticacao), id);
+    }
+
+    private boolean isAdmin(Authentication autenticacao) {
+        return autenticacao.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).anyMatch("ROLE_ADMIN"::equals);
     }
 }

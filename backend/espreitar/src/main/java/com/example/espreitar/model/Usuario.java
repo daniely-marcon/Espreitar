@@ -59,7 +59,8 @@ public class Usuario {
     @Column(nullable = false, length = 20)
     private Perfil perfil = Perfil.USER;
 
-    @Column(name = "foto_perfil", length = 500)
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "foto_perfil", columnDefinition = "TEXT")
     private String fotoPerfil;
 
     @Column(name = "data_criacao", nullable = false, updatable = false)
