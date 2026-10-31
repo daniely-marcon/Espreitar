@@ -28,6 +28,20 @@ public class AvaliacaoService {
     @Transactional
     public AvaliacaoResposta cadastrar(String email, Long midiaId, AvaliacaoEntrada dados) {
         Usuario usuario = usuarioPorEmail(email);
+    public Avaliacao cadastrarAvaliacao(Long usuarioId, Long midiaId, Avaliacao novaAvaliacao) {
+        if (novaAvaliacao.getNota() == null ||
+            novaAvaliacao.getNota() < 0 ||
+            novaAvaliacao.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+
+       
+        if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuarioId, midiaId)) {
+            throw new RuntimeException("Usuário já avaliou esta mídia!");
+        }
+
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado!"));
         Midia midia = midiaRepository.findById(midiaId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
         if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuario.getId(), midiaId)) {
@@ -74,6 +88,23 @@ public class AvaliacaoService {
         recalcularMediaMidia(existente.getMidia());
         return resposta(existente);
     }
+    public Avaliacao atualizarAvaliacao(Long id, Avaliacao novosDados) {
+        if (novosDados.getNota() == null ||
+            novosDados.getNota() < 0 ||
+            novosDados.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+        Avaliacao existente = avaliacaoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Avaliação não encontrada!"));
+
+        existente.setNota(novosDados.getNota());
+        existente.setComentario(novosDados.getComentario());
+        existente.setSpoiler(novosDados.isSpoiler());
+
+        Avaliacao salva = avaliacaoRepository.save(existente);
+
+
+        recalcularMediaMidia(existente.getMidia().getId());
 
     @Transactional
     public void excluir(String email, boolean administrador, Long id) {
