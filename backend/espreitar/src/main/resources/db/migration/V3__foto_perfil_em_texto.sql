@@ -1,0 +1,1 @@
+ALTER TABLE usuario MODIFY COLUMN foto_perfil TEXT NULL;

@@ -1,0 +1,55 @@
+/*
+  Design Tokens — Espreitar.
+*/
+
+:root {
+  /* ---- Cor: base ---- */
+  --color-bg: #0D0359;           /* fundo principal (navy/indigo) */
+  --color-surface: #FFFFFF;       /* inputs de busca, superfícies claras */
+  --color-input-bg: #D9D9D9;      /* fundo de campos de formulário (email, senha, nome) */
+
+  /* ---- Cor: marca ---- */
+  --color-primary: #FFD93D;       /* logo, títulos de seção, botão primário, estrelas cheias */
+  --color-primary-soft: #FFF4C7;  /* botão secundário (borda/texto), fundo de card de review */
+  --color-accent-lime: #E7FF57;   /* destaque decorativo (anel de avatar) */
+
+  /* ---- Cor: estado ---- */
+  --color-danger: #C00F0C;        /* checkbox marcado, alertas */
+
+  /* ---- Cor: texto ---- */
+  --color-text-primary: var(--color-primary);  /* títulos sobre fundo escuro */
+  --color-text-body: #867B90;                  /* parágrafos de descrição */
+  --color-text-on-primary: var(--color-bg);    /* texto sobre botão amarelo */
+  --color-text-inverse: #FFFFFF;               /* texto sobre fundo escuro (ex: botão Google) */
+
+  /* ---- Cor: botão OAuth ---- */
+  --color-btn-oauth-bg: #131314;
+
+  /* ---- Raio de borda (estimado — confirmar no Figma) ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-full: 999px;           /* botão "pill", avatar circular */
+
+  /* ---- Espaçamento (escala base, ajustar após Inspect) ---- */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 10px;
+    --space-4: 12px;
+    --space-5: 16px;
+    --space-6: 24px;
+    --space-7: 32px;
+
+  /* ---- Tipografia ---- */
+    --font-family-base: "Poppins", "Quicksand", "Segoe UI", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+  --font-size-2xl: 2.25rem;
+
+
+    /* ---- Cores extras usadas pelas telas ---- */
+    --color-ink: #1c1b1f; /* texto escuro sobre cards/popup */
+    --color-lilac: #e8def8; /* menus suspensos e botões pequenos */
+}
