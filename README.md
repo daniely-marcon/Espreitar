@@ -21,7 +21,7 @@ Este projeto foi desenvolvido como requisito de avaliação para a disciplina de
 O sistema gerencia diferentes níveis de permissão através do Spring Security:
 1. **Visitante:** Acesso anônimo apenas para leitura (busca de mídias e visualização de avaliações alheias).
 2. **Usuário Comum (ROLE_USER):** Acesso autenticado. Pode publicar novas avaliações, além de editar e excluir o próprio histórico.
-3. **Administrador (ROLE_ADMIN):** Acesso autenticado com privilégios de moderação. Pode excluir avaliações de terceiros e gerenciar o banimento de contas infratoras.
+3. **Administrador (ROLE_ADMIN):** Acesso autenticado com privilégios de moderação. Pode excluir avaliações denunciadas e contas de usuário; o sistema impede excluir a própria conta ou o último administrador.
 
 ---
 
@@ -40,18 +40,22 @@ A aplicação adota uma arquitetura em duas camadas, separando o Back-end (API R
 * HTML5 / CSS3 / JavaScript (puro)
 * Acessibilidade em conformidade com as diretrizes **WCAG AA**.
 
+### Identidade visual e interações
+
+A marca é apresentada como **Espreitar** no cabeçalho e nos títulos das páginas. No catálogo, os cards de filmes e séries têm um efeito suave ao passar o mouse: elevam-se e inclinam levemente, enquanto o pôster ganha zoom. O efeito também funciona ao navegar por teclado e é limitado a dispositivos com mouse; em telas sensíveis ao toque, os cards permanecem sem esse movimento.
+
 ---
 
 ## ⚙️ Pré-requisitos e Execução local
 
 Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
-* [Java 17+](https://www.oracle.com/java/technologies/javase-downloads.html) ou superior
+* [Java 25 LTS](https://www.oracle.com/java/technologies/javase-downloads.html)
 * [Maven](https://maven.apache.org/)
 * [MySQL](https://dev.mysql.com/downloads/mysql/)
 
 ### Banco de dados e migrações
 
-O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; a migração inicial `V1__criar_schema_inicial.sql` cria as tabelas das entidades. O Hibernate usa `ddl-auto=validate` para conferir o esquema, sem criar ou alterar tabelas por conta própria.
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil, `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade, `V5` guarda os metadados TMDb dos pedidos de inclusão, `V6` adiciona trailers e `V7` registra o motivo de cada denúncia. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
 
 O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
@@ -67,10 +71,48 @@ O arquivo `.env` fornece as credenciais ao Compose. Para iniciar o backend, abra
 
 A configuração local usa `DB_PASSWORD` quando ela está definida; caso contrário, usa `123`. O backend usa a porta `8081` para evitar conflito com a porta `8080` já ocupada neste ambiente. Para iniciar na porta padrão do Spring, remova `server.port=8081` de `application.properties`.
 
-O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica a `V1`; nas seguintes, consulta `flyway_schema_history` e executa apenas migrações ainda não aplicadas.
+O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica as migrações pendentes; nas seguintes, consulta `flyway_schema_history` e executa apenas as novas.
+
+### Início rápido e teste do efeito dos cards
+
+Configure o `.env` com as variáveis descritas nesta seção. Se o arquivo ainda não existir, copie `.env.example` para `.env`. Depois, execute na raiz do repositório:
+
+```bash
+docker compose up -d
+cd backend/espreitar
+./mvnw spring-boot:run
+```
+
+Quando o backend terminar de iniciar, abra `http://localhost:8081/`. Para conferir o efeito, o catálogo precisa ter ao menos um filme ou série cadastrado; passe o mouse sobre um card para vê-lo subir e inclinar enquanto o pôster aumenta levemente. Também é possível navegar até um card com `Tab` e focá-lo. Em dispositivos sem mouse, o efeito de movimento não é aplicado. Para parar o backend, use `Ctrl+C`; para parar os containers sem apagar os dados, execute `docker compose down` na raiz.
+
+Copie `.env.example` para `.env` e informe as integrações necessárias:
+
+* `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
+* `TMDB_ACCESS_TOKEN`: token de acesso de leitura da API do TMDb, usado para buscar filmes/séries e obter sinopse, ano e pôster. Não é necessário para abrir o catálogo local.
+* `JWT_SECRET`: segredo aleatório de pelo menos 32 caracteres. Os valores de exemplo são apenas para desenvolvimento e devem ser substituídos.
+
+O Google autentica e cria a conta no primeiro acesso; também é possível entrar e registrar com e-mail e senha. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no TMDb, escolhe um resultado e confirma; o cadastro também importa a nota média (convertida da escala 0–10 para 0–5) e a quantidade de votos externos. A nota da comunidade e a do TMDb são exibidas separadamente para não misturar fontes; enquanto não houver avaliações locais, o catálogo usa a nota TMDb para exibição e filtro. Apenas mídias já salvas no banco são exibidas como obras disponíveis. Quando uma busca no catálogo não encontra a obra, uma pessoa autenticada pode escolher uma opção do TMDb e enviar um pedido junto com sua nota e comentário; título, sinopse, ano e pôster são obtidos do TMDb e não podem ser alterados no pedido. A equipe administradora recebe uma notificação de novo pedido; se aprovar, a obra é cadastrada e a avaliação é publicada; ao recusar, o pedido é removido. Em ambos os casos, a pessoa solicitante recebe uma notificação. Pedidos pendentes ficam em `admin_solicitacoes.html`. Denúncias podem ser marcadas como contendo spoiler ou palavras ofensivas; a escolha do motivo não altera o comentário original. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
+
+```sql
+UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
+```
+
+Saia e entre novamente para receber um token com a nova permissão. Avaliações são únicas por pessoa e mídia; cada pessoa também pode enviar apenas uma denúncia por avaliação. Denúncias não removem conteúdo automaticamente: a decisão fica com a moderação.
 
 Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. O `.env` é local e não deve ser enviado ao Git; a senha `123` serve apenas para desenvolvimento local e deve ser substituída por uma senha forte antes de compartilhar o ambiente.
 
+### Testes
+
+Execute os testes automatizados no diretório `backend/espreitar`:
+
+```bash
+./mvnw test
+```
+
+Os testes de integração usam o MySQL configurado em `application.properties` e aplicam as migrações do Flyway. Inicie o banco com Docker Compose e configure `DB_USER` e `DB_PASSWORD` antes de executar `./mvnw test`. Eles cobrem cadastro e login local, carregamento do frontend e catálogo, prioridade da revisão da pessoa logada, aprovação e recusa de pedidos com notificações, cálculo da média e limite de denúncias.
+
+Para popular o banco de desenvolvimento com registros fictícios e testar a busca no frontend, execute o fixture [catalogo-demo.sql](./backend/espreitar/src/test/resources/fixtures/catalogo-demo.sql) no banco `espreitar`. Use esses dados apenas em desenvolvimento/teste; eles não são inseridos automaticamente em produção.
+
 ### Estado atual
 
-Até este marco, o backend tem entidades JPA, repositórios e a migração inicial do Flyway. A migração `V1` foi aplicada e validada no banco `espreitar`. Ainda faltam serviços, controladores/endpoints e a interface própria; a tela de login atual é a página padrão do Spring Security.
+O frontend está servido pelo próprio Spring Boot em `http://localhost:8081/` e consome a API no mesmo host. A API usa JWT para autenticação, autorização por perfil, validação de dados e migrações Flyway.

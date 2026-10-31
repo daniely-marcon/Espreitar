@@ -48,10 +48,19 @@ public class Midia {
     @Column(length = 500)
     private String cartaz;
 
+    @Column(name = "trailer_url", length = 255)
+    private String trailerUrl;
+
     /** Derivado das avaliacoes, mas gravado por desempenho. */
     @Column(name = "nota_media", nullable = false)
     private Double notaMedia = 0.0;
 
     @Column(name = "total_avaliacoes", nullable = false)
     private Integer totalAvaliacoes = 0;
+
+    @Column(name = "nota_media_externa", nullable = false)
+    private Double notaMediaExterna = 0.0;
+
+    @Column(name = "total_avaliacoes_externas", nullable = false)
+    private Integer totalAvaliacoesExternas = 0;
 }

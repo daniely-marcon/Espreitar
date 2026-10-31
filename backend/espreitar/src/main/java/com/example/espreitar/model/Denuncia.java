@@ -10,7 +10,8 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "denuncia")
+@Table(name = "denuncia", uniqueConstraints = @UniqueConstraint(
+        name = "uk_denuncia_usuario_avaliacao", columnNames = {"usuario_id", "avaliacao_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,6 +28,11 @@ public class Denuncia {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "avaliacao_id", nullable = false)
     private Avaliacao avaliacao;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "motivo", nullable = false, length = 30)
+    private MotivoDenuncia motivo = MotivoDenuncia.OUTRO;
 
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;

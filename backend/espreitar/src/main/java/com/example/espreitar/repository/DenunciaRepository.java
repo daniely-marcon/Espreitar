@@ -8,4 +8,8 @@ public interface DenunciaRepository extends JpaRepository<Denuncia, Long> {
     List<Denuncia> findAllByOrderByDataCriacaoDesc();
 
     long countByAvaliacaoId(Long avaliacaoId);
-   }
+
+    boolean existsByUsuarioIdAndAvaliacaoId(Long usuarioId, Long avaliacaoId);
+
+    void deleteByAvaliacaoId(Long avaliacaoId);
+}

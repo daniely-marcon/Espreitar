@@ -1,63 +1,112 @@
 package com.example.espreitar.service;
 
 import com.example.espreitar.model.Usuario;
+import com.example.espreitar.model.Perfil;
+import com.example.espreitar.model.dto.AtualizarPerfil;
+import com.example.espreitar.model.dto.AtualizarPerfilAdmin;
+import com.example.espreitar.model.dto.AuthResposta;
+import com.example.espreitar.model.dto.UsuarioResumo;
+import com.example.espreitar.model.dto.UsuarioAdminResumo;
 import com.example.espreitar.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder; // 1. Importe o PasswordEncoder
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
-public class UsuarioService{
+public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
-    private final PasswordEncoder passwordEncoder; // 2. Injete o PasswordEncoder aqui
+    private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
 
-    public Usuario cadastrarUsuario(Usuario user){
-        if (usuarioRepository.existsByEmail(user.getEmail())){
-            throw new RuntimeException("E-mail já cadastrado");
-        }
-
-
-        if (user.getSenha() != null && !user.getSenha().isBlank()) {
-            user.setSenha(passwordEncoder.encode(user.getSenha()));
-        }
-
-        return usuarioRepository.save(user);
+    @Transactional(readOnly = true)
+    public UsuarioResumo buscarPerfil(String email) {
+        return resumo(buscarUsuarioEmail(email));
     }
 
-    public Usuario buscarUsuarioEmail(String email){
-        Optional<Usuario> resultado = usuarioRepository.findByEmail(email);
-
-        if (resultado.isPresent()) {
-            return resultado.get();
-        } else {
-            throw new RuntimeException("Usuário não encontrado");
-        }
+    @Transactional(readOnly = true)
+    public List<UsuarioAdminResumo> listarUsuariosParaAdmin() {
+        return usuarioRepository.listarResumoAdmin();
     }
 
-    public void excluirUsuarioEmail(String email){
-        Usuario usuario = buscarUsuarioEmail(email);
+    @Transactional
+    public void atualizarPerfilAdmin(String emailAdmin, Long usuarioId, AtualizarPerfilAdmin dados) {
+        Usuario admin = buscarUsuarioEmail(emailAdmin);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        if (admin.getId().equals(usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível alterar o próprio perfil por este painel.");
+        }
+        if (usuario.getPerfil() == Perfil.ADMIN && dados.perfil() != Perfil.ADMIN
+                && usuarioRepository.countByPerfil(Perfil.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O sistema precisa manter pelo menos um administrador.");
+        }
+        usuario.setPerfil(dados.perfil());
+        usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public void excluirUsuarioAdmin(String emailAdmin, Long usuarioId) {
+        Usuario admin = buscarUsuarioEmail(emailAdmin);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        if (admin.getId().equals(usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível excluir a própria conta.");
+        }
+        if (usuario.getPerfil() == Perfil.ADMIN && usuarioRepository.countByPerfil(Perfil.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível excluir o último administrador.");
+        }
         usuarioRepository.delete(usuario);
     }
 
-    public Usuario atualizarUsuario(String email, Usuario dadosAtualizados){
-        Usuario usuarioExistente = buscarUsuarioEmail(email);
-        usuarioExistente.setNome(dadosAtualizados.getNome());
-
-        if (dadosAtualizados.getSenha() != null && !dadosAtualizados.getSenha().isBlank()) {
-            usuarioExistente.setSenha(passwordEncoder.encode(dadosAtualizados.getSenha()));
+    @Transactional
+    public AuthResposta atualizarPerfil(String emailAtual, AtualizarPerfil dados) {
+        Usuario usuario = buscarUsuarioEmail(emailAtual);
+        String novoEmail = dados.email().trim().toLowerCase(Locale.ROOT);
+        if (!usuario.getEmail().equals(novoEmail) && usuarioRepository.existsByEmail(novoEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado.");
         }
-
-        usuarioExistente.setFotoPerfil(dadosAtualizados.getFotoPerfil());
-        return usuarioRepository.save(usuarioExistente);
+        usuario.setNome(dados.nome().trim());
+        usuario.setEmail(novoEmail);
+        if (dados.senha() != null && !dados.senha().isBlank()) {
+            usuario.setSenha(passwordEncoder.encode(dados.senha()));
+        }
+        if (dados.fotoPerfil() != null) {
+            if (!dados.fotoPerfil().isBlank()
+                    && !dados.fotoPerfil().startsWith("data:image/jpeg;base64,")
+                    && !dados.fotoPerfil().startsWith("https://")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de foto inválido.");
+            }
+            usuario.setFotoPerfil(dados.fotoPerfil());
+        }
+        Usuario atualizado = usuarioRepository.save(usuario);
+        return new AuthResposta(tokenService.gerar(atualizado), resumo(atualizado));
     }
 
-    public List<String> listarNotificacoes(Long usuarioId) {
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado!"));
-        return usuario.getNotificacoes();
+    @Transactional(readOnly = true)
+    public List<String> listarNotificacoes(String email) {
+        return buscarUsuarioEmail(email).getNotificacoes();
+    }
+
+    @Transactional
+    public void limparNotificacoes(String email) {
+        buscarUsuarioEmail(email).getNotificacoes().clear();
+    }
+
+    private Usuario buscarUsuarioEmail(String email) {
+        String emailNormalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        return usuarioRepository.findByEmail(emailNormalizado)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+    }
+
+    private UsuarioResumo resumo(Usuario usuario) {
+        return new UsuarioResumo(usuario.getId(), usuario.getNome(), usuario.getEmail(),
+                usuario.getPerfil(), usuario.getFotoPerfil());
     }
 }
