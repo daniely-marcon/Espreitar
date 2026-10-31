@@ -249,6 +249,42 @@ class EspreitarApplicationTests {
 				.anyMatch(mensagem -> mensagem.contains("foi rejeitada")));
 	}
 
+	@Test
+	@WithMockUser(username = "denunciante.http@example.com", roles = "USER")
+	void endpointDeDenunciaCriaRegistroERejeitaDuplicidade() throws Exception {
+		Usuario denunciante = usuario("denunciante.http@example.com");
+		Usuario autor = usuario("autor.http@example.com");
+		Midia midia = midiaRepository.save(midia("Obra para denúncia HTTP"));
+		var avaliacao = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(2, "Comentário para denúncia HTTP", false));
+
+		mockMvc.perform(post("/denuncias")
+					.param("avaliacaoId", avaliacao.id().toString())
+					.param("motivo", "SPOILER"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.avaliacaoId").value(avaliacao.id()))
+				.andExpect(jsonPath("$.motivo").value("SPOILER"));
+
+		mockMvc.perform(post("/denuncias")
+					.param("avaliacaoId", avaliacao.id().toString())
+					.param("motivo", "OUTRO"))
+				.andExpect(status().isConflict());
+	}
+
+	@Test
+	@WithMockUser(username = "autor.proprio.http@example.com", roles = "USER")
+	void endpointDeDenunciaImpedeDenunciarAPropriaAvaliacao() throws Exception {
+		Usuario autor = usuario("autor.proprio.http@example.com");
+		Midia midia = midiaRepository.save(midia("Obra para auto denúncia HTTP"));
+		var avaliacao = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(1, "Minha avaliação", false));
+
+		mockMvc.perform(post("/denuncias")
+					.param("avaliacaoId", avaliacao.id().toString())
+					.param("motivo", "OUTRO"))
+				.andExpect(status().isBadRequest());
+	}
+
 	private Usuario usuario(String email) {
 		Usuario usuario = new Usuario();
 		usuario.setNome("Usuário de teste");
