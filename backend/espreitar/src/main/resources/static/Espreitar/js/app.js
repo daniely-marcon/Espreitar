@@ -84,12 +84,12 @@ function header() {
     const container = $("#cabecalho");
     if (!container) return;
     if (document.body.dataset.simples) {
-        container.innerHTML = `<header class="cabecalho simples"><a class="logo" href="index.html"><img src="../midia/logo (2).png" width="92" height="92" alt="Logo do Espreitar"><h1>espreitar.</h1></a></header>`;
+        container.innerHTML = `<header class="cabecalho simples"><a class="logo" href="index.html"><img src="../midia/logo (2).png" width="92" height="92" alt="Logo do Espreitar"><h1>Espreitar</h1></a></header>`;
         return;
     }
     const user = me();
     container.innerHTML = `<header class="cabecalho">
-      <a class="logo" href="index.html"><img src="../midia/logo (2).png" width="64" height="64" alt="Logo do Espreitar"><h1>espreitar.</h1></a>
+      <a class="logo" href="index.html"><img src="../midia/logo (2).png" width="64" height="64" alt="Logo do Espreitar"><h1>Espreitar</h1></a>
       <div class="busca">
         <select class="categoria" id="categoria" aria-label="Categoria">
           <option value="">Filme / Série</option><option value="FILME">Filme</option><option value="SERIE">Série</option>
