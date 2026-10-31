@@ -75,7 +75,9 @@ O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e 
 
 ### Início rápido e teste do efeito dos cards
 
-Configure o `.env` com as variáveis descritas nesta seção. Se o arquivo ainda não existir, copie `.env.example` para `.env`. Depois, execute na raiz do repositório:
+As credenciais usadas neste ambiente estão configuradas no `.env` local e são temporárias, válidas somente durante este período de testes. O arquivo não é versionado; fora deste ambiente, crie um `.env` local e configure as variáveis abaixo. Nunca compartilhe ou envie credenciais ao Git.
+
+Depois, execute na raiz do repositório:
 
 ```bash
 docker compose up -d
@@ -85,7 +87,7 @@ cd backend/espreitar
 
 Quando o backend terminar de iniciar, abra `http://localhost:8081/`. Para conferir o efeito, o catálogo precisa ter ao menos um filme ou série cadastrado; passe o mouse sobre um card para vê-lo subir e inclinar enquanto o pôster aumenta levemente. Também é possível navegar até um card com `Tab` e focá-lo. Em dispositivos sem mouse, o efeito de movimento não é aplicado. Para parar o backend, use `Ctrl+C`; para parar os containers sem apagar os dados, execute `docker compose down` na raiz.
 
-Copie `.env.example` para `.env` e informe as integrações necessárias:
+Para usar as integrações em outro ambiente, configure:
 
 * `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
 * `TMDB_ACCESS_TOKEN`: token de acesso de leitura da API do TMDb, usado para buscar filmes/séries e obter sinopse, ano e pôster. Não é necessário para abrir o catálogo local.
