@@ -75,7 +75,7 @@ O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e 
 
 ### Início rápido e teste do efeito dos cards
 
-As credenciais usadas neste ambiente estão configuradas no `.env` local e são temporárias, válidas somente durante este período de testes. O arquivo não é versionado; fora deste ambiente, crie um `.env` local e configure as variáveis abaixo. Nunca compartilhe ou envie credenciais ao Git.
+As credenciais usadas neste ambiente estão configuradas no `.env` local e são temporárias, válidas somente durante este período de testes. Após os testes, as credenciais do Google serão revogadas. O `.env` não é versionado e não deve ser compartilhado ou enviado ao Git.
 
 Depois, execute na raiz do repositório:
 
@@ -86,12 +86,6 @@ cd backend/espreitar
 ```
 
 Quando o backend terminar de iniciar, abra `http://localhost:8081/`. Para conferir o efeito, o catálogo precisa ter ao menos um filme ou série cadastrado; passe o mouse sobre um card para vê-lo subir e inclinar enquanto o pôster aumenta levemente. Também é possível navegar até um card com `Tab` e focá-lo. Em dispositivos sem mouse, o efeito de movimento não é aplicado. Para parar o backend, use `Ctrl+C`; para parar os containers sem apagar os dados, execute `docker compose down` na raiz.
-
-Para usar as integrações em outro ambiente, configure:
-
-* `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
-* `TMDB_ACCESS_TOKEN`: token de acesso de leitura da API do TMDb, usado para buscar filmes/séries e obter sinopse, ano e pôster. Não é necessário para abrir o catálogo local.
-* `JWT_SECRET`: segredo aleatório de pelo menos 32 caracteres. Os valores de exemplo são apenas para desenvolvimento e devem ser substituídos.
 
 O Google autentica e cria a conta no primeiro acesso; também é possível entrar e registrar com e-mail e senha. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no TMDb, escolhe um resultado e confirma; o cadastro também importa a nota média (convertida da escala 0–10 para 0–5) e a quantidade de votos externos. A nota da comunidade e a do TMDb são exibidas separadamente para não misturar fontes; enquanto não houver avaliações locais, o catálogo usa a nota TMDb para exibição e filtro. Apenas mídias já salvas no banco são exibidas como obras disponíveis. Quando uma busca no catálogo não encontra a obra, uma pessoa autenticada pode escolher uma opção do TMDb e enviar um pedido junto com sua nota e comentário; título, sinopse, ano e pôster são obtidos do TMDb e não podem ser alterados no pedido. A equipe administradora recebe uma notificação de novo pedido; se aprovar, a obra é cadastrada e a avaliação é publicada; ao recusar, o pedido é removido. Em ambos os casos, a pessoa solicitante recebe uma notificação. Pedidos pendentes ficam em `admin_solicitacoes.html`. Denúncias podem ser marcadas como contendo spoiler ou palavras ofensivas; a escolha do motivo não altera o comentário original. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
 
