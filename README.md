@@ -63,7 +63,7 @@ O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyA
 docker compose up -d
 ```
 
-O arquivo `.env` fornece as credenciais ao Compose. Para iniciar o backend, abra outro terminal no diretório `backend/espreitar` e execute:
+O arquivo `.env` versionado está vazio. Para rodar o projeto localmente, preencha-o com as variáveis de `.env.example`, usando valores apropriados para seu ambiente. Para iniciar o backend, abra outro terminal no diretório `backend/espreitar` e execute:
 
 ```bash
 ./mvnw spring-boot:run
@@ -75,7 +75,7 @@ O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e 
 
 ### Início rápido e teste do efeito dos cards
 
-As credenciais usadas neste ambiente estão configuradas no `.env` local e são temporárias, válidas somente durante este período de testes. Após os testes, as credenciais do Google serão revogadas. O `.env` não é versionado e não deve ser compartilhado ou enviado ao Git.
+As credenciais usadas neste ambiente de testes são temporárias; as credenciais do Google serão revogadas após os testes. O `.env` incluído no Git está vazio apenas para indicar o arquivo necessário. Preencha uma cópia local com as variáveis de `.env.example` para executar o projeto. Nunca faça commit ou push do `.env` preenchido, pois ele pode conter credenciais.
 
 Depois, execute na raiz do repositório:
 
@@ -95,7 +95,7 @@ UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
 
 Saia e entre novamente para receber um token com a nova permissão. Avaliações são únicas por pessoa e mídia; cada pessoa também pode enviar apenas uma denúncia por avaliação. Denúncias não removem conteúdo automaticamente: a decisão fica com a moderação.
 
-Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. O `.env` é local e não deve ser enviado ao Git; a senha `123` serve apenas para desenvolvimento local e deve ser substituída por uma senha forte antes de compartilhar o ambiente.
+Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. Os valores de exemplo, como a senha `123`, servem apenas para desenvolvimento local e devem ser substituídos por valores apropriados antes de compartilhar o ambiente. Antes de qualquer commit ou push, confirme que o `.env` está vazio.
 
 ### Testes
 
