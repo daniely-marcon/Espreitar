@@ -40,6 +40,10 @@ A aplicação adota uma arquitetura em duas camadas, separando o Back-end (API R
 * HTML5 / CSS3 / JavaScript (puro)
 * Acessibilidade em conformidade com as diretrizes **WCAG AA**.
 
+### Identidade visual e interações
+
+A marca é apresentada como **Espreitar** no cabeçalho e nos títulos das páginas. No catálogo, os cards de filmes e séries têm um efeito suave ao passar o mouse: elevam-se e inclinam levemente, enquanto o pôster ganha zoom. O efeito também funciona ao navegar por teclado e é limitado a dispositivos com mouse; em telas sensíveis ao toque, os cards permanecem sem esse movimento.
+
 ---
 
 ## ⚙️ Pré-requisitos e Execução local
