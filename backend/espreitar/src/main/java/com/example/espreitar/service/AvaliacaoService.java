@@ -27,30 +27,24 @@ public class AvaliacaoService {
 
     @Transactional
     public AvaliacaoResposta cadastrar(String email, Long midiaId, AvaliacaoEntrada dados) {
-        Usuario usuario = usuarioPorEmail(email);
-    public Avaliacao cadastrarAvaliacao(Long usuarioId, Long midiaId, Avaliacao novaAvaliacao) {
-        if (novaAvaliacao.getNota() == null ||
-            novaAvaliacao.getNota() < 0 ||
-            novaAvaliacao.getNota() > 5) {
+        if (dados.nota() == null || dados.nota() < 0 || dados.nota() > 5) {
             throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
         }
 
-       
-        if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuarioId, midiaId)) {
-            throw new RuntimeException("Usuário já avaliou esta mídia!");
-        }
+        Usuario usuario = usuarioPorEmail(email);
 
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado!"));
         Midia midia = midiaRepository.findById(midiaId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
+
         if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuario.getId(), midiaId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Você já avaliou esta mídia.");
         }
+
         Avaliacao avaliacao = new Avaliacao();
         avaliacao.setUsuario(usuario);
         avaliacao.setMidia(midia);
         aplicarDados(avaliacao, dados);
+
         Avaliacao salva = avaliacaoRepository.save(avaliacao);
         recalcularMediaMidia(midia);
         return resposta(salva);
@@ -82,29 +76,18 @@ public class AvaliacaoService {
 
     @Transactional
     public AvaliacaoResposta atualizar(String email, boolean administrador, Long id, AvaliacaoEntrada dados) {
+        if (dados.nota() == null || dados.nota() < 0 || dados.nota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+
         Avaliacao existente = buscarAvaliacao(id);
         exigirDonoOuAdmin(existente, email, administrador);
         aplicarDados(existente, dados);
-        recalcularMediaMidia(existente.getMidia());
-        return resposta(existente);
-    }
-    public Avaliacao atualizarAvaliacao(Long id, Avaliacao novosDados) {
-        if (novosDados.getNota() == null ||
-            novosDados.getNota() < 0 ||
-            novosDados.getNota() > 5) {
-            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
-        }
-        Avaliacao existente = avaliacaoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Avaliação não encontrada!"));
-
-        existente.setNota(novosDados.getNota());
-        existente.setComentario(novosDados.getComentario());
-        existente.setSpoiler(novosDados.isSpoiler());
 
         Avaliacao salva = avaliacaoRepository.save(existente);
-
-
-        recalcularMediaMidia(existente.getMidia().getId());
+        recalcularMediaMidia(existente.getMidia());
+        return resposta(salva);
+    }
 
     @Transactional
     public void excluir(String email, boolean administrador, Long id) {
@@ -133,9 +116,6 @@ public class AvaliacaoService {
     }
 
     private void aplicarDados(Avaliacao avaliacao, AvaliacaoEntrada dados) {
-        if (dados.nota() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A nota é obrigatória.");
-        }
         avaliacao.setNota(dados.nota());
         avaliacao.setComentario(dados.comentario());
         avaliacao.setSpoiler(dados.spoiler());
@@ -159,5 +139,63 @@ public class AvaliacaoService {
             midia.setTotalAvaliacoes(0);
         }
         midiaRepository.save(midia);
+    }
+
+
+    public Avaliacao cadastrarAvaliacao(Long usuarioId, Long midiaId, Avaliacao avaliacao) {
+        if (avaliacao.getNota() < 0 || avaliacao.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+
+        if (avaliacaoRepository.existsByUsuarioIdAndMidiaId(usuarioId, midiaId)) {
+            throw new RuntimeException("Usuário já avaliou esta mídia!");
+        }
+
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado!"));
+
+        Midia midia = midiaRepository.findById(midiaId)
+                .orElseThrow(() -> new RuntimeException("Mídia não encontrada!"));
+
+        avaliacao.setUsuario(usuario);
+        avaliacao.setMidia(midia);
+        Avaliacao salva = avaliacaoRepository.save(avaliacao);
+
+        recalcularMediaMidia(midia);
+
+        return salva;
+    }
+
+    public Avaliacao atualizarAvaliacao(Long id, Avaliacao novosDados) {
+        if (novosDados.getNota() < 0 || novosDados.getNota() > 5) {
+            throw new IllegalArgumentException("A nota deve estar entre 0 e 5!");
+        }
+
+        Avaliacao existente = avaliacaoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliação não encontrada."));
+
+        existente.setNota(novosDados.getNota());
+        if (novosDados.getComentario() != null) {
+            existente.setComentario(novosDados.getComentario());
+        }
+        existente.setSpoiler(novosDados.isSpoiler());
+
+        Avaliacao salva = avaliacaoRepository.save(existente);
+        recalcularMediaMidia(existente.getMidia());
+        return salva;
+    }
+
+    public void excluirAvaliacao(Long id) {
+        Avaliacao existente = buscarAvaliacao(id);
+        Midia midia = existente.getMidia();
+        avaliacaoRepository.delete(existente);
+        recalcularMediaMidia(midia);
+    }
+
+    public List<Avaliacao> listarAvaliacoesDaMidia(Long midiaId, Object o, Object o1) {
+        if (!midiaRepository.existsById(midiaId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada.");
+        }
+        return avaliacaoRepository.findByMidiaIdOrderByDataCriacaoDesc(midiaId);
     }
 }
