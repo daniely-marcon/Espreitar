@@ -96,7 +96,8 @@ public class AvaliacaoService {
     }
 
     private Usuario usuarioPorEmail(String email) {
-        return usuarioRepository.findByEmail(email)
+        String emailNormalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        return usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
     }
 

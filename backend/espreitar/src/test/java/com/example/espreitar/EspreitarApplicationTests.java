@@ -2,6 +2,9 @@ package com.example.espreitar;
 
 import com.example.espreitar.model.Perfil;
 import com.example.espreitar.model.Midia;
+import com.example.espreitar.model.MotivoDenuncia;
+import com.example.espreitar.model.Solicitacao;
+import com.example.espreitar.model.StatusSolicitacao;
 import com.example.espreitar.model.TipoMidia;
 import com.example.espreitar.model.Usuario;
 import com.example.espreitar.model.dto.AvaliacaoEntrada;
@@ -10,8 +13,11 @@ import com.example.espreitar.service.AutenticacaoAplicacaoService;
 import com.example.espreitar.service.AvaliacaoService;
 import com.example.espreitar.service.DenunciaService;
 import com.example.espreitar.service.MidiaService;
+import com.example.espreitar.service.SolicitacaoService;
+import com.example.espreitar.service.UsuarioService;
 import com.example.espreitar.repository.AvaliacaoRepository;
 import com.example.espreitar.repository.MidiaRepository;
+import com.example.espreitar.repository.SolicitacaoRepository;
 import com.example.espreitar.repository.UsuarioRepository;
 import com.example.espreitar.service.AutenticacaoService;
 import org.junit.jupiter.api.Test;
@@ -41,6 +47,9 @@ class EspreitarApplicationTests {
 	private AutenticacaoService autenticacaoService;
 
 	@Autowired
+	private UsuarioService usuarioService;
+
+	@Autowired
 	private UsuarioRepository usuarioRepository;
 
 	@Autowired
@@ -60,6 +69,12 @@ class EspreitarApplicationTests {
 
 	@Autowired
 	private MidiaService midiaService;
+
+	@Autowired
+	private SolicitacaoService solicitacaoService;
+
+	@Autowired
+	private SolicitacaoRepository solicitacaoRepository;
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -90,6 +105,14 @@ class EspreitarApplicationTests {
 				UsernameNotFoundException.class,
 				() -> autenticacaoService.loadUserByUsername("inexistente@example.com")
 		);
+	}
+
+	@Test
+	void buscasPorEmailIgnoramCaixaDasLetras() {
+		Usuario usuario = usuario("email.caixa@example.com");
+
+		assertEquals(usuario.getEmail(), usuarioService.buscarPerfil("EMAIL.CAIXA@EXAMPLE.COM").email());
+		assertEquals(0, avaliacaoService.listarDoUsuario("EMAIL.CAIXA@EXAMPLE.COM").size());
 	}
 
 	@Test
@@ -159,9 +182,11 @@ class EspreitarApplicationTests {
 		var review = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
 				new AvaliacaoEntrada(1, "Comentário de teste", false));
 
-		denunciaService.criarDenuncia(denunciante.getEmail(), review.id());
+		var denuncia = denunciaService.criarDenuncia(
+				denunciante.getEmail(), review.id(), MotivoDenuncia.PALAVRAS_OFENSIVAS);
+		assertEquals(MotivoDenuncia.PALAVRAS_OFENSIVAS, denuncia.motivo());
 		assertThrows(org.springframework.web.server.ResponseStatusException.class,
-				() -> denunciaService.criarDenuncia(denunciante.getEmail(), review.id()));
+				() -> denunciaService.criarDenuncia(denunciante.getEmail(), review.id(), MotivoDenuncia.SPOILER));
 		assertTrue(avaliacaoRepository.existsById(review.id()));
 	}
 
@@ -190,6 +215,40 @@ class EspreitarApplicationTests {
 		assertEquals(12500, recarregada.getTotalAvaliacoesExternas());
 	}
 
+	@Test
+	void aprovarPedidoCriaMidiaComAvaliacaoEAvisaUsuario() {
+		Usuario pessoa = usuario("pedido.aprovado@example.com");
+		Solicitacao solicitacao = solicitacao(pessoa, "O Filme Externo", "tmdb-789");
+		solicitacaoRepository.saveAndFlush(solicitacao);
+
+		Midia midia = solicitacaoService.aprovarSolicitacao(solicitacao.getId());
+
+		assertEquals("tmdb-789", midia.getIdExterno());
+		assertEquals("https://image.tmdb.org/t/p/w500/capa.jpg", midia.getCartaz());
+		assertEquals(4.2, midia.getNotaMediaExterna(), 0.0001);
+		assertEquals(800, midia.getTotalAvaliacoesExternas());
+		assertEquals(1, midia.getTotalAvaliacoes());
+		var avaliacao = avaliacaoRepository.findByUsuarioIdAndMidiaId(pessoa.getId(), midia.getId()).orElseThrow();
+		assertEquals(5, avaliacao.getNota());
+		assertEquals("Quero ver esse filme", avaliacao.getComentario());
+		assertTrue(usuarioRepository.findById(pessoa.getId()).orElseThrow().getNotificacoes().stream()
+				.anyMatch(mensagem -> mensagem.contains("foi aprovada")));
+		assertTrue(solicitacaoRepository.findById(solicitacao.getId()).isEmpty());
+	}
+
+	@Test
+	void rejeitarPedidoRemoveFilaENotificaUsuario() {
+		Usuario pessoa = usuario("pedido.rejeitado@example.com");
+		Solicitacao solicitacao = solicitacao(pessoa, "Outra obra", "tmdb-790");
+		solicitacaoRepository.saveAndFlush(solicitacao);
+
+		solicitacaoService.rejeitarSolicitacao(solicitacao.getId());
+
+		assertTrue(solicitacaoRepository.findById(solicitacao.getId()).isEmpty());
+		assertTrue(usuarioRepository.findById(pessoa.getId()).orElseThrow().getNotificacoes().stream()
+				.anyMatch(mensagem -> mensagem.contains("foi rejeitada")));
+	}
+
 	private Usuario usuario(String email) {
 		Usuario usuario = new Usuario();
 		usuario.setNome("Usuário de teste");
@@ -205,5 +264,23 @@ class EspreitarApplicationTests {
 		midia.setTipo(TipoMidia.FILME);
 		midia.setIdExterno("test-" + titulo.replace(" ", "-"));
 		return midia;
+	}
+
+	private Solicitacao solicitacao(Usuario pessoa, String titulo, String idExterno) {
+		Solicitacao solicitacao = new Solicitacao();
+		solicitacao.setUsuario(pessoa);
+		solicitacao.setTitulo(titulo);
+		solicitacao.setIdExterno(idExterno);
+		solicitacao.setAno(2025);
+		solicitacao.setTipo(TipoMidia.FILME);
+		solicitacao.setSinopse("Sinopse do pedido");
+		solicitacao.setCartaz("https://image.tmdb.org/t/p/w500/capa.jpg");
+		solicitacao.setNotaMediaExterna(4.2);
+		solicitacao.setTotalAvaliacoesExternas(800);
+		solicitacao.setStatus(StatusSolicitacao.PENDENTE);
+		solicitacao.setNota(5);
+		solicitacao.setComentario("Quero ver esse filme");
+		solicitacao.setSpoiler(false);
+		return solicitacao;
 	}
 }

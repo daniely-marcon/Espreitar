@@ -45,6 +45,6 @@ A aplicação adota uma arquitetura em duas camadas, separando o Back-end (API R
 ## ⚙️ Pré-requisitos e Execução local
 
 Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
-* [Java 17+](https://www.oracle.com/java/technologies/javase-downloads.html) ou superior
+* [Java 25 LTS](https://www.oracle.com/java/technologies/javase-downloads.html)
 * [Maven](https://maven.apache.org/)
 * [MySQL](https://dev.mysql.com/downloads/mysql/)

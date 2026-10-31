@@ -1,6 +1,7 @@
 package com.example.espreitar.repository;
 
 import com.example.espreitar.model.Usuario;
+import com.example.espreitar.model.Perfil;
 import com.example.espreitar.model.dto.UsuarioAdminResumo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,7 +15,11 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByGoogleId(String googleId);
 
+    List<Usuario> findByPerfil(Perfil perfil);
+
     boolean existsByEmail(String email);
+
+    long countByPerfil(Perfil perfil);
 
     @Query("""
             SELECT new com.example.espreitar.model.dto.UsuarioAdminResumo(

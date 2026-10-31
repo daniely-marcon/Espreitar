@@ -147,6 +147,7 @@ public class MidiaService {
                 .host("api.themoviedb.org")
                 .path("/3/" + tipoTmdb + "/" + idExterno)
                 .queryParam("language", "pt-BR")
+                .queryParam("append_to_response", "videos")
                 .build());
         if (item == null || item.path("id").isMissingNode()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Obra não encontrada na API externa.");
@@ -156,8 +157,33 @@ public class MidiaService {
         return new DetalheExterno(idExterno, titulo, ano(lancamento),
                 tipo.name(), item.path("overview").asText(null),
                 urlCartaz(item.path("poster_path").asText(null)),
+                trailerYoutube(item),
                 notaNaEscalaLocal(item.path("vote_average").asDouble(0)),
                 item.path("vote_count").asInt(0));
+    }
+
+    private String trailerYoutube(JsonNode item) {
+        JsonNode videos = item.path("videos").path("results");
+        if (!videos.isArray()) {
+            return null;
+        }
+        JsonNode trailer = null;
+        for (JsonNode video : videos) {
+            if (!"YouTube".equalsIgnoreCase(video.path("site").asText())
+                    || !"Trailer".equalsIgnoreCase(video.path("type").asText())
+                    || video.path("key").asText().isBlank()) {
+                continue;
+            }
+            if (video.path("official").asBoolean(false)) {
+                trailer = video;
+                break;
+            }
+            if (trailer == null) {
+                trailer = video;
+            }
+        }
+        return trailer == null ? null
+                : "https://www.youtube-nocookie.com/embed/" + trailer.path("key").asText();
     }
 
     private double notaNaEscalaLocal(double notaTmdb) {

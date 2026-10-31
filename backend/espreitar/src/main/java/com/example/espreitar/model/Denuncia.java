@@ -29,6 +29,11 @@ public class Denuncia {
     @JoinColumn(name = "avaliacao_id", nullable = false)
     private Avaliacao avaliacao;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "motivo", nullable = false, length = 30)
+    private MotivoDenuncia motivo = MotivoDenuncia.OUTRO;
+
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
 

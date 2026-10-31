@@ -27,6 +27,7 @@ const toast = (message) => {
 };
 
 let auth = null;
+let notificationInterval = null;
 try {
     auth = JSON.parse(localStorage.getItem("espreitar.auth") || "null");
 } catch {
@@ -103,7 +104,10 @@ function header() {
         <button type="submit" aria-label="Buscar"><i class="fa fa-search"></i></button>
       </form>
       <aside class="acesso">${user
-        ? `<button class="btn-icone" id="notificacao" type="button" aria-label="Notificações">♢</button>
+        ? `<button class="btn-icone botao-notificacao" id="notificacao" type="button" aria-label="Notificações">
+             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+             <span class="notificacao-contador" id="notificacao-contador" hidden></span>
+           </button>
            ${user.fotoPerfil && safeImage(user.fotoPerfil)
                 ? `<img class="foto-usuario" src="${safeImage(user.fotoPerfil)}" alt="Foto de ${escapeHtml(user.nome)}">`
                 : ""}
@@ -111,7 +115,7 @@ function header() {
            <button class="btn-icone" id="botao-menu" type="button" aria-label="Menu">⋮</button>
            <div class="menu-suspenso" id="menu-opcoes" hidden>
              <a href="dados.html">Alterar dados</a><a href="user.html">Minhas revisões</a>
-             ${user.perfil === "ADMIN" ? '<a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a>' : ""}
+             ${user.perfil === "ADMIN" ? '<a href="admin_denuncias.html">Denúncias</a><a href="admin_solicitacoes.html">Pedidos</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a>' : ""}
              <button type="button" id="sair">Sair</button>
            </div><div class="menu-suspenso" id="lista-notificacoes" hidden></div>`
         : `<button class="registrar" type="button" onclick="go('register.html')">Registrar</button>
@@ -134,6 +138,14 @@ function header() {
     $("#botao-menu")?.addEventListener("click", () => toggleMenu("menu-opcoes"));
     $("#sair")?.addEventListener("click", logout);
     $("#notificacao")?.addEventListener("click", mostrarNotificacoes);
+    if (notificationInterval !== null) {
+        window.clearInterval(notificationInterval);
+        notificationInterval = null;
+    }
+    if (user) {
+        atualizarIndicadorNotificacoes();
+        notificationInterval = window.setInterval(() => atualizarIndicadorNotificacoes(), 30_000);
+    }
     const query = new URLSearchParams(location.search);
     if ($("#categoria")) $("#categoria").value = query.get("type") || "";
     if ($("#classificacao")) $("#classificacao").value = query.get("rating") || "";
@@ -156,8 +168,28 @@ async function mostrarNotificacoes() {
             ? notifications.map((item) => `<p class="aviso">${escapeHtml(item)}</p>`).join("")
             : '<p class="aviso aviso-vazio">Sem notificações</p>';
         toggleMenu("lista-notificacoes");
+        if (notifications.length) {
+            await api("/usuarios/me/notificacoes", { method: "DELETE" });
+            atualizarIndicadorNotificacoes(0);
+        }
     } catch (error) {
         toast(error.message);
+    }
+}
+
+async function atualizarIndicadorNotificacoes(total = null) {
+    const indicator = $("#notificacao-contador");
+    const button = $("#notificacao");
+    if (!indicator || !button) return;
+    try {
+        const notifications = total === null ? await api("/usuarios/me/notificacoes") : null;
+        const count = total === null ? notifications.length : total;
+        indicator.textContent = count > 9 ? "9+" : String(count);
+        indicator.hidden = count === 0;
+        button.classList.toggle("tem-notificacoes", count > 0);
+        button.setAttribute("aria-label", count ? `Notificações: ${count} novas` : "Notificações");
+    } catch (error) {
+        console.error("Não foi possível consultar notificações.", error);
     }
 }
 

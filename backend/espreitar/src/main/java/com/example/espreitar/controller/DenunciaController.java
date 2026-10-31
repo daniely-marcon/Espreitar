@@ -1,6 +1,7 @@
 package com.example.espreitar.controller;
 
 import com.example.espreitar.model.dto.DenunciaResposta;
+import com.example.espreitar.model.MotivoDenuncia;
 import com.example.espreitar.service.DenunciaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -16,8 +17,9 @@ public class DenunciaController {
 
     @PostMapping
     public DenunciaResposta criar(
-            Authentication autenticacao, @RequestParam Long avaliacaoId) {
-        return denunciaService.criarDenuncia(autenticacao.getName(), avaliacaoId);
+            Authentication autenticacao, @RequestParam Long avaliacaoId,
+            @RequestParam(defaultValue = "OUTRO") MotivoDenuncia motivo) {
+        return denunciaService.criarDenuncia(autenticacao.getName(), avaliacaoId, motivo);
     }
 
     @GetMapping

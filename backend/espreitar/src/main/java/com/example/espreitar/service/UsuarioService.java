@@ -1,7 +1,9 @@
 package com.example.espreitar.service;
 
 import com.example.espreitar.model.Usuario;
+import com.example.espreitar.model.Perfil;
 import com.example.espreitar.model.dto.AtualizarPerfil;
+import com.example.espreitar.model.dto.AtualizarPerfilAdmin;
 import com.example.espreitar.model.dto.AuthResposta;
 import com.example.espreitar.model.dto.UsuarioResumo;
 import com.example.espreitar.model.dto.UsuarioAdminResumo;
@@ -34,6 +36,36 @@ public class UsuarioService {
     }
 
     @Transactional
+    public void atualizarPerfilAdmin(String emailAdmin, Long usuarioId, AtualizarPerfilAdmin dados) {
+        Usuario admin = buscarUsuarioEmail(emailAdmin);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        if (admin.getId().equals(usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível alterar o próprio perfil por este painel.");
+        }
+        if (usuario.getPerfil() == Perfil.ADMIN && dados.perfil() != Perfil.ADMIN
+                && usuarioRepository.countByPerfil(Perfil.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "O sistema precisa manter pelo menos um administrador.");
+        }
+        usuario.setPerfil(dados.perfil());
+        usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public void excluirUsuarioAdmin(String emailAdmin, Long usuarioId) {
+        Usuario admin = buscarUsuarioEmail(emailAdmin);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
+        if (admin.getId().equals(usuario.getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível excluir a própria conta.");
+        }
+        if (usuario.getPerfil() == Perfil.ADMIN && usuarioRepository.countByPerfil(Perfil.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Não é possível excluir o último administrador.");
+        }
+        usuarioRepository.delete(usuario);
+    }
+
+    @Transactional
     public AuthResposta atualizarPerfil(String emailAtual, AtualizarPerfil dados) {
         Usuario usuario = buscarUsuarioEmail(emailAtual);
         String novoEmail = dados.email().trim().toLowerCase(Locale.ROOT);
@@ -62,8 +94,14 @@ public class UsuarioService {
         return buscarUsuarioEmail(email).getNotificacoes();
     }
 
+    @Transactional
+    public void limparNotificacoes(String email) {
+        buscarUsuarioEmail(email).getNotificacoes().clear();
+    }
+
     private Usuario buscarUsuarioEmail(String email) {
-        return usuarioRepository.findByEmail(email)
+        String emailNormalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        return usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
     }
 

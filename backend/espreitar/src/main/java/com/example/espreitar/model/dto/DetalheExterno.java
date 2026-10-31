@@ -7,6 +7,7 @@ public record DetalheExterno(
         String tipo,
         String sinopse,
         String cartaz,
+        String trailerUrl,
         Double notaMedia,
         Integer totalAvaliacoes
 ) {

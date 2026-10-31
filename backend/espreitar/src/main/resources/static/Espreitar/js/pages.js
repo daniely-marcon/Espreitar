@@ -1,15 +1,21 @@
 const pageName = document.body.dataset.page;
-const query = new URLSearchParams(location.search);
+let query = new URLSearchParams(location.search);
 let selectedRating = 3;
 let currentMediaId = null;
 let reviewEditing = null;
 let adminMediaEditingId = null;
 let searchTimer = null;
+let homeSearchVersion = 0;
 const loadedReviews = new Map();
 
 const pageContent = () => document.querySelector("#conteudo");
 const prettyDate = (date) => date ? new Date(date).toLocaleDateString("pt-BR") : "";
 const formatRating = (rating) => (Number(rating) || 0).toFixed(2);
+const motivoDenunciaLabel = (motivo) => ({
+    SPOILER: "Contém spoiler",
+    PALAVRAS_OFENSIVAS: "Palavras ofensivas",
+    OUTRO: "Outro motivo",
+}[motivo] || "Outro motivo");
 const showError = (error) => toast(error?.message || "Não foi possível concluir a operação.");
 const emptyState = (title, message) => `<div class="estado-vazio">
   <img src="../midia/sem-resultados.svg" alt="" width="180" height="140">
@@ -17,12 +23,10 @@ const emptyState = (title, message) => `<div class="estado-vazio">
 </div>`;
 
 async function pageHome() {
+    const searchVersion = ++homeSearchVersion;
     try {
-        const searchParams = new URLSearchParams();
-        if (query.get("q")) searchParams.set("q", query.get("q"));
-        if (query.get("type")) searchParams.set("tipo", query.get("type"));
-        if (query.get("rating")) searchParams.set("notaMinima", query.get("rating"));
-        const all = await api(`/midias${searchParams.size ? `?${searchParams}` : ""}`);
+        const all = await api("/midias");
+        if (searchVersion !== homeSearchVersion) return;
         const term = (query.get("q") || "").trim().toLocaleLowerCase("pt-BR");
         const type = query.get("type") || "";
         const minRating = Number(query.get("rating") || 0);
@@ -32,6 +36,20 @@ async function pageHome() {
             && (Number(item.totalAvaliacoes) > 0
                 ? (Number(item.notaMedia) || 0)
                 : (Number(item.notaMediaExterna) || 0)) >= minRating);
+        let sugestoesExternas = [];
+        let erroBuscaExterna = "";
+        if (term.length >= 2 && me()) {
+            try {
+                const tipos = type ? [type] : ["FILME", "SERIE"];
+                const resultados = await Promise.all(tipos.map((tipo) =>
+                    api(`/midias/externa?q=${encodeURIComponent(query.get("q"))}&tipo=${tipo}`)));
+                if (searchVersion !== homeSearchVersion) return;
+                const idsNoCatalogo = new Set(all.map((item) => `${item.idExterno}:${item.tipo}`));
+                sugestoesExternas = resultados.flat().filter((item) => !idsNoCatalogo.has(`${item.idExterno}:${item.tipo}`));
+            } catch (error) {
+                erroBuscaExterna = error.message;
+            }
+        }
         const destaque = term ? null : media[0];
         const restante = destaque ? media.slice(1) : media;
         const catalogo = (items) => items.map((item) => `<article class="card" role="link" tabindex="0"
@@ -60,12 +78,32 @@ async function pageHome() {
                 </div><span class="destaque-cta">Ver detalhes</span>
               </div>
             </article>` : ""}
-          ${restante.length ? `<h2 class="secao-titulo">${destaque ? "Mais para assistir" : "Resultados"}</h2>
+          ${restante.length ? `<h2 class="secao-titulo">${destaque ? "Mais para assistir" : "No catálogo"}</h2>
           <div class="grid-filmes">${catalogo(restante)}</div>` : !destaque ? `<div class="grid-filmes">${emptyState(
-                term ? "Não encontramos esse título" : "O catálogo ainda está vazio",
-                term ? "Tente outro nome ou ajuste os filtros para ver mais resultados." : "Volte em breve para descobrir novos filmes e séries."
+                term ? (sugestoesExternas.length ? "Este título ainda não está no catálogo" : "Não encontramos esse título")
+                    : "O catálogo ainda está vazio",
+                term ? (sugestoesExternas.length
+                    ? "Encontramos opções no TMDb. Escolha uma para enviar um pedido e deixar sua avaliação."
+                    : "Tente outro nome ou ajuste os filtros para ver mais resultados.")
+                    : "Volte em breve para descobrir novos filmes e séries."
             )}</div>` : ""}
+          ${sugestoesExternas.length ? `<section class="sugestoes-externas">
+            <h2 class="secao-titulo">Opções para solicitar inclusão</h2>
+            <p>Esses títulos ainda não fazem parte do catálogo. Selecione uma opção para enviar seu pedido e sua avaliação. A avaliação será publicada se a equipe aprovar a inclusão.</p>
+            <div class="grid-filmes">${sugestoesExternas.map((item) => `<article class="card">
+              ${poster(item.cartaz, item.titulo)}
+              <h3>${escapeHtml(item.titulo)}</h3>
+              <small>${escapeHtml(item.ano || "")} · ${item.tipo === "SERIE" ? "Série" : "Filme"}</small>
+              <button type="button" class="enviar solicitar-midia" data-id="${escapeHtml(item.idExterno)}" data-type="${escapeHtml(item.tipo)}">
+                Solicitar inclusão
+              </button>
+            </article>`).join("")}</div>
+          </section>` : erroBuscaExterna ? `<p class="erro-busca-externa">Busca no TMDb indisponível: ${escapeHtml(erroBuscaExterna)}</p>`
+              : term && !media.length && !me() ? `<p class="login-pedido">Entre ou <a href="register.html">crie uma conta</a> para buscar títulos no TMDb e pedir a inclusão.</p>` : ""}
         </main>`;
+        document.querySelectorAll(".solicitar-midia").forEach((button) => {
+            button.addEventListener("click", () => iniciarPedidoMidia(button.dataset.id, button.dataset.type));
+        });
     } catch (error) {
         pageContent().innerHTML = "<main><p>Não foi possível carregar o catálogo.</p></main>";
         showError(error);
@@ -94,6 +132,11 @@ async function pageFilme() {
               <span>${formatRating(media.notaMediaExterna)}/5 · ${Number(media.totalAvaliacoesExternas) || 0} votos no TMDb</span></div>
             <small>${escapeHtml(media.ano || "")}</small>
             <p>${escapeHtml(media.sinopse || "Sinopse indisponível.")}</p>
+            ${safeTrailer(media.trailerUrl) ? `<section class="trailer-midia"><h3>Trailer</h3>
+              <iframe src="${safeTrailer(media.trailerUrl)}" title="Trailer de ${escapeHtml(media.titulo)}"
+                loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen></iframe></section>` : ""}
           </div></div>
           <h2 class="secao-titulo">Revisões</h2>
           <label class="filtro-spoiler"><input id="filtro-spoiler" type="checkbox" checked> Ocultar spoilers</label>
@@ -102,9 +145,13 @@ async function pageFilme() {
         </main>`;
         $("#adicionar-revisao").addEventListener("click", () => abrirRevisao());
         $("#filtro-spoiler").addEventListener("change", (event) => {
-            document.querySelectorAll(".borrado").forEach((item) => {
+            document.querySelectorAll(".revisao [data-spoiler='true']").forEach((item) => {
                 item.classList.toggle("spoiler-oculto", event.target.checked);
             });
+        });
+        const ocultarSpoilers = $("#filtro-spoiler").checked;
+        document.querySelectorAll(".revisao [data-spoiler='true']").forEach((item) => {
+            item.classList.toggle("spoiler-oculto", ocultarSpoilers);
         });
         document.querySelectorAll(".acao-denunciar").forEach((button) => {
             button.addEventListener("click", () => denunciar(button.dataset.id));
@@ -122,15 +169,82 @@ function reviewCard(review) {
     const self = me()?.id === review.usuarioId;
     const avatar = safeAvatar(review.fotoPerfil);
     return `<article class="revisao">
-      <div class="avatar">${avatar ? `<img src="${avatar}" alt="">` : escapeHtml(review.nomeUsuario?.slice(0, 1) || "?")}</div>
-      <div><h3>${stars(review.nota)} ${review.spoiler ? '<small class="selo-spoiler">[spoiler]</small>' : ""}</h3>
-        <p class="${review.spoiler ? "spoiler-oculto" : ""}">${escapeHtml(review.comentario || "Sem comentário.")}</p>
-        <small class="autor">por ${escapeHtml(review.nomeUsuario)} · ${prettyDate(review.dataCriacao)}</small>
-        ${self
+      <div class="avatar review-avatar">${avatar ? `<img src="${avatar}" alt="Foto de ${escapeHtml(review.nomeUsuario)}">` : escapeHtml(review.nomeUsuario?.slice(0, 1) || "?")}</div>
+      <div class="review-content">
+        <div class="review-heading"><div><h3>${stars(review.nota)} ${review.spoiler ? '<small class="selo-spoiler">[spoiler]</small>' : ""}</h3>
+          <small class="autor">${escapeHtml(review.nomeUsuario)} · ${prettyDate(review.dataCriacao)}</small></div>
+          ${self
             ? `<button class="btn-link btn-editar-revisao" type="button" data-id="${review.id}">Editar</button>`
             : me() ? `<button class="btn-link acao-denunciar" type="button" data-id="${review.id}">Denunciar</button>` : ""}
+        </div>
+        <p data-spoiler="${review.spoiler}" class="review-comentario ${review.spoiler ? "spoiler-oculto" : ""}">${escapeHtml(review.comentario || "Sem comentário.")}</p>
       </div>
     </article>`;
+}
+
+function safeTrailer(value) {
+    if (typeof value !== "string") return "";
+    const match = value.match(/^https:\/\/www\.youtube-nocookie\.com\/embed\/([A-Za-z0-9_-]{6,})$/);
+    return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : "";
+}
+
+async function iniciarPedidoMidia(idExterno, tipo) {
+    if (!requireLogin()) return;
+    try {
+        const media = await api(`/midias/externa/${encodeURIComponent(idExterno)}?tipo=${encodeURIComponent(tipo)}`);
+        const catalogo = await api("/midias");
+        const existente = catalogo.find((item) => item.idExterno === media.idExterno && item.tipo === media.tipo);
+        if (existente) {
+            go(`filme.html?id=${existente.id}`);
+            return;
+        }
+        window.selectedRequestMedia = media;
+        selectedRating = 3;
+        $("#area-popup").innerHTML = `<div class="popup-fundo" id="pedido-fundo"><section class="popup popup-pedido" role="dialog" aria-modal="true" aria-label="Pedir inclusão e avaliar">
+          <h2 class="secao-titulo">Solicitar inclusão</h2>
+          <p>Este título ainda não está no catálogo. Confira os dados e envie seu pedido com uma avaliação. Se a equipe aprovar, o título será adicionado e sua avaliação publicada.</p>
+          <div class="pedido-midia">${poster(media.cartaz, media.titulo)}<div>
+            <strong>${escapeHtml(media.titulo)}</strong>
+            <span>${escapeHtml(media.ano || "")} · ${media.tipo === "SERIE" ? "Série" : "Filme"}</span>
+            <small>Informações fornecidas pelo TMDb</small>
+          </div></div>
+          <label for="pedido-nota">Sua avaliação</label><select id="pedido-nota">${[5, 4, 3, 2, 1].map((nota) =>
+              `<option value="${nota}" ${nota === selectedRating ? "selected" : ""}>${nota} ${"★".repeat(nota)}</option>`).join("")}</select>
+          <label for="pedido-comentario">Comentário (opcional)</label><textarea id="pedido-comentario" maxlength="5000" placeholder="Conte o que achou deste título"></textarea>
+          <label class="opcao-spoiler"><input type="checkbox" id="pedido-spoiler"> O comentário contém spoiler</label>
+          <div class="acoes"><button class="cancelar" type="button" id="cancelar-pedido">Cancelar</button>
+            <button class="enviar" type="button" id="enviar-pedido">Enviar pedido</button></div>
+        </section></div>`;
+        $("#cancelar-pedido").addEventListener("click", () => { $("#area-popup").innerHTML = ""; });
+        $("#enviar-pedido").addEventListener("click", enviarPedidoMidia);
+        $("#pedido-fundo").addEventListener("click", (event) => {
+            if (event.target.id === "pedido-fundo") $("#area-popup").innerHTML = "";
+        });
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function enviarPedidoMidia() {
+    const media = window.selectedRequestMedia;
+    if (!media) return;
+    try {
+        await api("/solicitacoes", {
+            method: "POST",
+            body: {
+                idExterno: media.idExterno,
+                tipo: media.tipo,
+                nota: Number($("#pedido-nota").value),
+                comentario: $("#pedido-comentario").value.trim(),
+                spoiler: $("#pedido-spoiler").checked,
+            },
+        });
+        window.selectedRequestMedia = null;
+        $("#area-popup").innerHTML = "";
+        toast("Pedido enviado. Se for aprovado, sua avaliação será publicada.");
+    } catch (error) {
+        showError(error);
+    }
 }
 
 function safeAvatar(value) {
@@ -208,8 +322,33 @@ async function publicarRevisao() {
 
 async function denunciar(id) {
     if (!requireLogin()) return;
+    $("#area-popup").innerHTML = `<div class="popup-fundo" id="denuncia-fundo">
+      <section class="popup popup-denuncia" role="dialog" aria-modal="true" aria-labelledby="denuncia-titulo">
+        <h2 class="secao-titulo" id="denuncia-titulo">Denunciar revisão</h2>
+        <p>Selecione o motivo. O comentário original não será alterado.</p>
+        <label for="motivo-denuncia">Motivo</label>
+        <select id="motivo-denuncia">
+          <option value="SPOILER">Contém spoiler</option>
+          <option value="PALAVRAS_OFENSIVAS">Palavras ofensivas</option>
+          <option value="OUTRO">Outro motivo</option>
+        </select>
+        <div class="acoes"><button class="cancelar" type="button" id="cancelar-denuncia">Cancelar</button>
+          <button class="enviar" type="button" id="enviar-denuncia">Enviar denúncia</button></div>
+      </section></div>`;
+    $("#cancelar-denuncia").addEventListener("click", cancelar);
+    $("#enviar-denuncia").addEventListener("click", () => enviarDenuncia(id));
+    $("#denuncia-fundo").addEventListener("click", (event) => {
+        if (event.target.id === "denuncia-fundo") cancelar();
+    });
+}
+
+async function enviarDenuncia(id) {
     try {
-        await api(`/denuncias?avaliacaoId=${encodeURIComponent(id)}`, { method: "POST" });
+        const motivo = $("#motivo-denuncia").value;
+        await api(`/denuncias?avaliacaoId=${encodeURIComponent(id)}&motivo=${encodeURIComponent(motivo)}`, {
+            method: "POST",
+        });
+        cancelar();
         toast("Denúncia enviada à moderação.");
     } catch (error) {
         showError(error);
@@ -300,6 +439,7 @@ function pageLogin() {
         <label for="email">E-mail</label><input type="email" id="email" autocomplete="email" required>
         <label for="senha">Senha</label><input type="password" id="senha" autocomplete="current-password" required>
       </div>
+      <div class="auth-separador">ou continue com Google</div>
       <div class="google-signin" id="google-button"></div>
       <div class="acoes"><button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
         <button type="submit" class="enviar">Login</button></div>
@@ -332,6 +472,7 @@ function pageRegistro() {
         <label for="registro-foto">Foto de perfil</label><input type="file" id="registro-foto" accept="image/*">
         <div class="foto-preview" id="registro-foto-preview"><span>Prévia da foto de perfil</span></div>
       </div>
+      <div class="auth-separador">ou crie sua conta com Google</div>
       <div class="google-signin" id="google-button"></div>
       <div class="acoes"><button type="button" class="cancelar" onclick="go('index.html')">Cancelar</button>
         <button type="submit" class="enviar">Confirmar</button></div>
@@ -452,7 +593,7 @@ async function setupGoogleSignIn() {
 }
 
 const adminMarkup = (title, body) => `<main><div class="painel">
-  <nav><a href="admin_denuncias.html">Denúncias</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a></nav>
+  <nav><a href="admin_denuncias.html">Denúncias</a><a href="admin_solicitacoes.html">Pedidos</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a></nav>
   <section><h2 class="secao-titulo">${title}</h2>${body}</section></div></main>`;
 
 async function pageDenuncias() {
@@ -462,6 +603,7 @@ async function pageDenuncias() {
         pageContent().innerHTML = adminMarkup("Denúncias Pendentes",
             reports.map((item) => `<article class="item-denuncia">
               <div><strong>${escapeHtml(item.tituloMidia)}</strong><p>${escapeHtml(item.comentario || "Sem comentário.")}</p>
+                <small class="motivo-denuncia">Motivo: ${escapeHtml(motivoDenunciaLabel(item.motivo))}</small>
                 <small>Autor: ${escapeHtml(item.autor)} · Denunciado por: ${escapeHtml(item.denunciante)}</small></div>
               <button class="botao-manter" type="button" onclick="manterComentario(${item.id})">Manter</button>
               <button class="botao-remover" type="button" onclick="removerComentario(${item.id}, ${item.avaliacaoId})">Remover</button>
@@ -488,6 +630,49 @@ async function removerComentario(reportId, reviewId) {
         await api(`/avaliacoes/${reviewId}`, { method: "DELETE" });
         toast("Avaliação removida.");
         await pageDenuncias();
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function pageSolicitacoesAdmin() {
+    if (!requireAdmin()) return;
+    pageContent().innerHTML = adminMarkup("Pedidos de inclusão", '<div id="fila-solicitacoes">Carregando pedidos...</div>');
+    try {
+        const requests = await api("/solicitacoes/fila");
+        $("#fila-solicitacoes").innerHTML = requests.length
+            ? requests.map((item) => `<article class="pedido-admin">
+                ${poster(item.cartaz, item.titulo)}
+                <div class="pedido-admin-info"><h3>${escapeHtml(item.titulo)}</h3>
+                  <small>${item.tipo === "SERIE" ? "Série" : "Filme"} · ${escapeHtml(item.ano || "")} · pedido por ${escapeHtml(item.nomeUsuario)}</small>
+                  <p>${escapeHtml(item.sinopse || "Sinopse indisponível.")}</p>
+                  <div>${stars(item.nota)} <small>avaliação inicial</small> · ${escapeHtml(item.comentario || "Sem comentário")}</div>
+                  ${item.spoiler ? '<small class="selo-spoiler">O comentário contém spoiler</small>' : ""}
+                  <small>TMDb: ${formatRating(item.notaMediaExterna)}/5 · ${Number(item.totalAvaliacoesExternas) || 0} votos</small>
+                </div>
+                <div class="acoes"><button class="enviar" type="button" data-aprovar-pedido="${item.id}">Aceitar</button>
+                  <button class="botao-remover" type="button" data-rejeitar-pedido="${item.id}">Recusar</button></div>
+              </article>`).join("")
+            : "<p>Não há pedidos pendentes.</p>";
+        $("#fila-solicitacoes").querySelectorAll("[data-aprovar-pedido]").forEach((button) => {
+            button.addEventListener("click", () => decidirPedido(button.dataset.aprovarPedido, true));
+        });
+        $("#fila-solicitacoes").querySelectorAll("[data-rejeitar-pedido]").forEach((button) => {
+            button.addEventListener("click", () => decidirPedido(button.dataset.rejeitarPedido, false));
+        });
+    } catch (error) {
+        $("#fila-solicitacoes").textContent = "Não foi possível carregar os pedidos.";
+        showError(error);
+    }
+}
+
+async function decidirPedido(id, aprovar) {
+    try {
+        await api(`/solicitacoes/${encodeURIComponent(id)}/${aprovar ? "aprovar" : "rejeitar"}`, {
+            method: aprovar ? "POST" : "DELETE",
+        });
+        toast(aprovar ? "Pedido aprovado e avaliação publicada." : "Pedido recusado; a pessoa será notificada.");
+        await pageSolicitacoesAdmin();
     } catch (error) {
         showError(error);
     }
@@ -674,20 +859,42 @@ async function pageUsuariosAdmin() {
     pageContent().innerHTML = adminMarkup("Usuários", '<div id="usuarios-admin">Carregando usuários...</div>');
     try {
         const users = await api("/usuarios/admin");
+        const totalAdmins = users.filter((user) => user.perfil === "ADMIN").length;
+        const usuarioAtual = me();
         $("#usuarios-admin").innerHTML = users.length
-            ? `<div class="tabela-admin usuarios-admin"><div class="linha-admin cabecalho-admin"><span>Perfil</span><span>Usuário</span><span>Conta</span><span>Atividade</span></div>
+            ? `<div class="tabela-admin usuarios-admin"><div class="linha-admin cabecalho-admin"><span>Perfil</span><span>Usuário</span><span>Conta</span><span>Atividade</span><span>Ações</span></div>
               ${users.map((user) => {
                   const photo = safeAvatar(user.fotoPerfil);
+                  const proprioUsuario = usuarioAtual?.id === user.id;
+                  const ultimoAdmin = user.perfil === "ADMIN" && totalAdmins <= 1;
                   return `<article class="linha-admin">
                     <div class="avatar-admin">${photo ? `<img src="${photo}" alt="">` : escapeHtml(user.nome.slice(0, 1))}</div>
                     <span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.email)}</small></span>
                     <span>${user.perfil === "ADMIN" ? "Administrador" : "Usuário"}<small>${user.provedor === "GOOGLE" ? "Google" : "Local"} · desde ${prettyDate(user.dataCriacao)}</small></span>
                     <span>${Number(user.totalAvaliacoes) || 0} revisões</span>
+                    <span class="acoes-admin">${proprioUsuario
+                      ? '<small>Sua conta</small>'
+                      : `<button class="botao-remover" type="button" data-excluir-usuario="${user.id}"
+                          ${ultimoAdmin ? "disabled title=\"O sistema precisa manter um administrador\"" : ""}>Excluir</button>`}</span>
                   </article>`;
               }).join("")}</div>`
             : "<p>Nenhuma conta cadastrada.</p>";
+        $("#usuarios-admin").querySelectorAll("[data-excluir-usuario]").forEach((button) => {
+            button.addEventListener("click", () => excluirUsuarioAdmin(button.dataset.excluirUsuario));
+        });
     } catch (error) {
         $("#usuarios-admin").textContent = "Não foi possível carregar a lista de usuários.";
+        showError(error);
+    }
+}
+
+async function excluirUsuarioAdmin(id) {
+    if (!confirm("Excluir esta conta e suas atividades? Esta ação não pode ser desfeita.")) return;
+    try {
+        await api(`/usuarios/admin/${encodeURIComponent(id)}`, { method: "DELETE" });
+        toast("Conta excluída.");
+        await pageUsuariosAdmin();
+    } catch (error) {
         showError(error);
     }
 }
@@ -700,6 +907,7 @@ const pages = {
     login: pageLogin,
     registro: pageRegistro,
     denuncias: pageDenuncias,
+    solicitacoes: pageSolicitacoesAdmin,
     filmes: pageFilmes,
     usuarios: pageUsuariosAdmin,
 };
@@ -707,6 +915,23 @@ const pageRenderer = pages[pageName] || pageHome;
 setRender(pageRenderer);
 header();
 pageRenderer();
+if (pageName === "home") {
+    $("#campo-pesquisa")?.addEventListener("input", (event) => {
+        clearTimeout(searchTimer);
+        const termo = event.target.value.trim();
+        if (termo && termo.length < 2) return;
+        searchTimer = setTimeout(() => {
+            const params = new URLSearchParams();
+            if ($("#categoria").value) params.set("type", $("#categoria").value);
+            if ($("#classificacao").value) params.set("rating", $("#classificacao").value);
+            if (termo) params.set("q", termo);
+            const url = `${location.pathname}${params.size ? `?${params}` : ""}`;
+            history.replaceState(null, "", url);
+            query = new URLSearchParams(location.search);
+            pageHome();
+        }, 400);
+    });
+}
 
 window.editarRevisao = editarRevisao;
 window.deletarRevisao = deletarRevisao;

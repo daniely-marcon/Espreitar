@@ -2,6 +2,7 @@ package com.example.espreitar.service;
 
 import com.example.espreitar.model.Avaliacao;
 import com.example.espreitar.model.Denuncia;
+import com.example.espreitar.model.MotivoDenuncia;
 import com.example.espreitar.model.Usuario;
 import com.example.espreitar.model.dto.DenunciaResposta;
 import com.example.espreitar.repository.AvaliacaoRepository;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +25,9 @@ public class DenunciaService {
     private final AvaliacaoRepository avaliacaoRepository;
 
     @Transactional
-    public DenunciaResposta criarDenuncia(String email, Long avaliacaoId) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
+    public DenunciaResposta criarDenuncia(String email, Long avaliacaoId, MotivoDenuncia motivo) {
+        String emailNormalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
         Avaliacao avaliacao = avaliacaoRepository.findById(avaliacaoId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliação não encontrada."));
@@ -37,6 +40,7 @@ public class DenunciaService {
         Denuncia denuncia = new Denuncia();
         denuncia.setUsuario(usuario);
         denuncia.setAvaliacao(avaliacao);
+        denuncia.setMotivo(motivo == null ? MotivoDenuncia.OUTRO : motivo);
         return resposta(denunciaRepository.save(denuncia));
     }
 
@@ -61,6 +65,7 @@ public class DenunciaService {
     private DenunciaResposta resposta(Denuncia d) {
         return new DenunciaResposta(d.getId(), d.getAvaliacao().getId(),
                 d.getAvaliacao().getComentario(), d.getAvaliacao().getUsuario().getNome(),
-                d.getAvaliacao().getMidia().getTitulo(), d.getUsuario().getNome(), d.getDataCriacao());
+                d.getAvaliacao().getMidia().getTitulo(), d.getUsuario().getNome(),
+                d.getMotivo(), d.getDataCriacao());
     }
 }

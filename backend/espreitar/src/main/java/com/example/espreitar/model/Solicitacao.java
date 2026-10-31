@@ -20,7 +20,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
-/** Pedido de inclusao de obra nao encontrada na API nem no banco local. */
+/** Pedido de inclusao de obra encontrada na API externa e ausente do catalogo local. */
 @Entity
 @Table(name = "solicitacao")
 @Getter
@@ -39,6 +39,9 @@ public class Solicitacao {
     @Column(nullable = false, length = 255)
     private String titulo;
 
+    @Column(name = "id_externo", length = 50)
+    private String idExterno;
+
     private Integer ano;
 
     @Enumerated(EnumType.STRING)
@@ -49,6 +52,18 @@ public class Solicitacao {
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(columnDefinition = "TEXT")
     private String sinopse;
+
+    @Column(length = 500)
+    private String cartaz;
+
+    @Column(name = "trailer_url", length = 255)
+    private String trailerUrl;
+
+    @Column(name = "nota_media_externa", nullable = false)
+    private Double notaMediaExterna = 0.0;
+
+    @Column(name = "total_avaliacoes_externas", nullable = false)
+    private Integer totalAvaliacoesExternas = 0;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
