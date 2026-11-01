@@ -33,6 +33,9 @@ const friendlyErrorMessage = (error, fallback = "Não foi possível concluir. Te
     if (/trailer/i.test(message) || /\/trailer(?:$|[?#])/.test(error?.path || "")) {
         return "Trailer indisponível.";
     }
+    if (/\/auth\/esqueci-senha/.test(error?.path || "")) {
+        return "Não foi possível enviar o e-mail de recuperação. Confira a configuração do serviço de e-mail e tente novamente.";
+    }
     if (/failed to fetch|networkerror|load failed/i.test(message)) {
         return "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
     }

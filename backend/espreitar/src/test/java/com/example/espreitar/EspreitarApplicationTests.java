@@ -18,6 +18,7 @@ import com.example.espreitar.service.MidiaService;
 import com.example.espreitar.service.SolicitacaoService;
 import com.example.espreitar.service.UsuarioService;
 import com.example.espreitar.repository.AvaliacaoRepository;
+import com.example.espreitar.repository.DenunciaRepository;
 import com.example.espreitar.repository.MidiaRepository;
 import com.example.espreitar.repository.SolicitacaoRepository;
 import com.example.espreitar.repository.UsuarioRepository;
@@ -59,6 +60,9 @@ class EspreitarApplicationTests {
 
 	@Autowired
 	private AvaliacaoRepository avaliacaoRepository;
+
+	@Autowired
+	private DenunciaRepository denunciaRepository;
 
 	@Autowired
 	private AutenticacaoAplicacaoService autenticacaoAplicacaoService;
@@ -259,6 +263,27 @@ class EspreitarApplicationTests {
 		assertEquals(MotivoDenuncia.PALAVRAS_OFENSIVAS, denuncia.motivo());
 		assertThrows(org.springframework.web.server.ResponseStatusException.class,
 				() -> denunciaService.criarDenuncia(denunciante.getEmail(), review.id(), MotivoDenuncia.SPOILER));
+		assertTrue(avaliacaoRepository.existsById(review.id()));
+	}
+
+	@Test
+	@WithMockUser(username = "denunciante.http@example.com", roles = "USER")
+	void endpointHttpRegistraDenunciaDeUsuarioAutenticado() throws Exception {
+		Usuario autor = usuario("autor.denuncia.http@example.com");
+		usuario("denunciante.http@example.com");
+		Midia midia = midiaRepository.saveAndFlush(midia("Obra denunciada via HTTP"));
+		var review = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(1, "Comentário denunciado via HTTP", false));
+
+		mockMvc.perform(post("/denuncias")
+						.param("avaliacaoId", review.id().toString())
+						.param("motivo", "PALAVRAS_OFENSIVAS"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.avaliacaoId").value(review.id()))
+				.andExpect(jsonPath("$.motivo").value("PALAVRAS_OFENSIVAS"))
+				.andExpect(jsonPath("$.totalDenuncias").value(1));
+
+		assertEquals(1, denunciaRepository.countByAvaliacaoId(review.id()));
 		assertTrue(avaliacaoRepository.existsById(review.id()));
 	}
 

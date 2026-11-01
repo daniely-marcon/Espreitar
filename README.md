@@ -13,7 +13,7 @@ Este projeto foi desenvolvido como requisito de avaliação para a disciplina de
 * **Sistema de Avaliações:** Usuários logados podem atribuir notas de 0 a 5 estrelas e adicionar comentários em texto às obras.
 * **Gestão de Histórico:** Cada usuário possui um perfil próprio para gerenciar, editar ou excluir suas avaliações anteriores.
 * **Autenticação Flexível:** Cadastro manual (e-mail e senha) e suporte a login integrado (Google OAuth).
-* **Recuperação de senha:** Redefinição segura por link temporário enviado por SMTP; contas Google também podem definir uma senha para entrar por e-mail.
+* **Recuperação de senha:** Redefinição segura por link temporário enviado pela API HTTPS da Brevo; contas Google também podem definir uma senha para entrar por e-mail.
 * **Moderação:** Painel administrativo para configurar o limite de denúncias antes da remoção automática de uma avaliação, com notificação à pessoa autora.
 * **Cadastro de catálogo:** Inclusão manual de filmes e séries ou preenchimento assistido pelos dados do TMDb.
 * **Acessibilidade e telas móveis:** Navegação por teclado, foco visível, atalho para o conteúdo, estados de carregamento acessíveis, respeito à preferência por movimento reduzido e layout adaptado para celular.
@@ -108,20 +108,15 @@ UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
 
 ### Recuperação de senha por e-mail
 
-A recuperação usa SMTP e links de uso único com validade de 30 minutos. Para testar localmente com Gmail, preencha no `.env` `MAIL_USERNAME` com seu endereço Gmail, `MAIL_PASSWORD` com uma senha de app do Google e `MAIL_FROM` com o mesmo endereço. O host, a porta, TLS e a URL local já estão configurados no exemplo abaixo. Não use a senha normal da conta Google nem publique credenciais SMTP:
+A recuperação usa a API HTTPS da Brevo e links de uso único com validade de 30 minutos. Crie uma chave de API na Brevo e configure a chave e um remetente verificado:
 
 ```text
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=seu-endereco@gmail.com
-MAIL_PASSWORD=sua-senha-de-app-do-google
-MAIL_FROM=seu-endereco@gmail.com
-MAIL_SMTP_AUTH=true
-MAIL_SMTP_STARTTLS=true
+BREVO_API_KEY=sua-chave-de-api-da-brevo
+MAIL_FROM=remetente-verificado@seudominio.com
 APP_PUBLIC_URL=http://localhost:8081
 ```
 
-Ative a verificação em duas etapas na conta Google e crie uma senha de app na área de segurança da Conta Google. `MAIL_PASSWORD` recebe essa senha de app, não a senha normal. O `.env` é carregado automaticamente pelo Spring Boot ao executar o projeto a partir da pasta `backend/espreitar`. `APP_PUBLIC_URL` é a origem usada para montar o link de redefinição; localmente mantenha `http://localhost:8081`. Depois de preencher as credenciais, reinicie o backend e teste **Esqueci minha senha**. Sem SMTP configurado, o serviço avisa que a recuperação por e-mail ainda não está disponível. O formulário não revela se o endereço informado possui uma conta. No Render, configure as mesmas variáveis no painel do serviço e use a URL HTTPS pública em `APP_PUBLIC_URL`.
+`MAIL_FROM` precisa ser um remetente verificado na Brevo. O `.env` é carregado automaticamente pelo Spring Boot ao executar o projeto a partir da pasta `backend/espreitar`. Em desenvolvimento local, mantenha `APP_PUBLIC_URL=http://localhost:8081`; no Render, use a URL HTTPS pública do serviço. Configure `BREVO_API_KEY`, `MAIL_FROM` e `APP_PUBLIC_URL` no ambiente do deploy. O envio é feito por HTTPS, compatível com o plano Free do Render, que bloqueia conexões SMTP de saída. Nunca publique a chave de API. Sem a chave ou remetente configurado, a tela informa que o envio não está disponível. O formulário não revela se o endereço informado possui uma conta.
 
 ### Publicar na Oracle Cloud Always Free
 
