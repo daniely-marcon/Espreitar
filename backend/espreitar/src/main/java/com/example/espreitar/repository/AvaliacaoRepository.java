@@ -23,6 +23,9 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, Long> {
 
     Optional<Avaliacao> findByUsuarioIdAndMidiaId(Long usuarioId, Long midiaId);
 
+    @Query(value = "select * from avaliacao where id = :id for update", nativeQuery = true)
+    Optional<Avaliacao> findByIdForUpdate(@Param("id") Long id);
+
     List<Avaliacao> findByMidiaIdOrderByDataCriacaoDesc(Long midiaId);
 
     List<Avaliacao> findByUsuarioIdOrderByDataCriacaoDesc(Long usuarioId);

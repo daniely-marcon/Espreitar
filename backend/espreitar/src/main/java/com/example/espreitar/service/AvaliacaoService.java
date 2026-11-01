@@ -93,6 +93,15 @@ public class AvaliacaoService {
     public void excluir(String email, boolean administrador, Long id) {
         Avaliacao avaliacao = buscarAvaliacao(id);
         exigirDonoOuAdmin(avaliacao, email, administrador);
+        excluir(avaliacao);
+    }
+
+    @Transactional
+    public void excluirAutomaticamente(Long id) {
+        excluir(buscarAvaliacao(id));
+    }
+
+    private void excluir(Avaliacao avaliacao) {
         Midia midia = avaliacao.getMidia();
         avaliacaoRepository.delete(avaliacao);
         recalcularMediaMidia(midia);

@@ -1,0 +1,58 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: espreitar
+      MYSQL_USER: ${DB_USER:?Configure DB_USER no arquivo .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD no arquivo .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configure MYSQL_ROOT_PASSWORD no arquivo .env}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_oracle:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: 8081
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:mysql://mysql:3306/espreitar?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=20000
+      DB_USER: ${DB_USER:?Configure DB_USER no arquivo .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD no arquivo .env}
+      JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET no arquivo .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TMDB_ACCESS_TOKEN: ${TMDB_ACCESS_TOKEN:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APP_PUBLIC_URL: https://${APP_DOMAIN}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Configure APP_DOMAIN no arquivo .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.oracle:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  mysql_oracle:
+  caddy_data:
+  caddy_config:

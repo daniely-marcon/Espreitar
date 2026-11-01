@@ -30,18 +30,31 @@ public class MidiaService {
     private String tokenTmdb;
 
     public Midia cadastrarMidia(Midia midia){
-        if (midia.getIdExterno() == null || midia.getIdExterno().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecione uma obra encontrada na busca externa.");
+        if (midia.getTipo() == null || midia.getTitulo() == null || midia.getTitulo().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe o tipo e o título da obra.");
         }
-        if (midia.getNotaMediaExterna() == null
-                || midia.getNotaMediaExterna() < 0
-                || midia.getNotaMediaExterna() > 5
-                || midia.getTotalAvaliacoesExternas() == null
-                || midia.getTotalAvaliacoesExternas() < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nota ou total de votos do TMDb inválido.");
+        boolean cadastroManual = midia.getIdExterno() == null || midia.getIdExterno().isBlank();
+        if (cadastroManual) {
+            midia.setIdExterno(null);
+            midia.setNotaMediaExterna(0.0);
+            midia.setTotalAvaliacoesExternas(0);
+        } else {
+            if (midia.getNotaMediaExterna() == null
+                    || midia.getNotaMediaExterna() < 0
+                    || midia.getNotaMediaExterna() > 5
+                    || midia.getTotalAvaliacoesExternas() == null
+                    || midia.getTotalAvaliacoesExternas() < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nota ou total de votos do TMDb inválido.");
+            }
+            midia.setIdExterno(midia.getIdExterno().trim());
         }
-        if (midiaRepository.findByIdExternoAndTipo(midia.getIdExterno(), midia.getTipo()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta obra já está cadastrada.");
+        midia.setTrailerUrl(normalizarTrailerYoutube(midia.getTrailerUrl()));
+        midia.setTitulo(midia.getTitulo().trim());
+        if ((!cadastroManual && midiaRepository.findByIdExternoAndTipo(
+                midia.getIdExterno(), midia.getTipo()).isPresent())
+                || midiaRepository.existsDuplicate(
+                        midia.getTitulo(), midia.getAno(), midia.getTipo(), null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         return midiaRepository.save(midia);
     }
@@ -79,12 +92,17 @@ public class MidiaService {
         Midia midiaExistente = midiaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
 
-        midiaExistente.setTitulo(dadosAtualizados.getTitulo());
+        String titulo = dadosAtualizados.getTitulo().trim();
+        if (midiaRepository.existsDuplicate(
+                titulo, dadosAtualizados.getAno(), dadosAtualizados.getTipo(), id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta obra já está cadastrada.");
+        }
+        midiaExistente.setTitulo(titulo);
         midiaExistente.setAno(dadosAtualizados.getAno());
         midiaExistente.setTipo(dadosAtualizados.getTipo());
         midiaExistente.setSinopse(dadosAtualizados.getSinopse());
         midiaExistente.setCartaz(dadosAtualizados.getCartaz());
-
+        midiaExistente.setTrailerUrl(normalizarTrailerYoutube(dadosAtualizados.getTrailerUrl()));
 
         return midiaRepository.save(midiaExistente);
     }
@@ -92,6 +110,22 @@ public class MidiaService {
     public Midia buscarPorId(Long id) {
         return midiaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
+    }
+
+    public String buscarTrailer(Long id) {
+        Midia midia = buscarPorId(id);
+        if (midia.getTrailerUrl() != null && !midia.getTrailerUrl().isBlank()) {
+            return midia.getTrailerUrl();
+        }
+        if (midia.getIdExterno() == null || !midia.getIdExterno().matches("\\d+")) {
+            return null;
+        }
+        String trailerUrl = buscarDetalheExterno(midia.getIdExterno(), midia.getTipo()).trailerUrl();
+        if (trailerUrl != null && !trailerUrl.isBlank()) {
+            midia.setTrailerUrl(trailerUrl);
+            midiaRepository.save(midia);
+        }
+        return trailerUrl;
     }
 
     public List<BuscaExterna> buscarExterna(String termo, TipoMidia tipo) {
@@ -184,6 +218,57 @@ public class MidiaService {
         }
         return trailer == null ? null
                 : "https://www.youtube-nocookie.com/embed/" + trailer.path("key").asText();
+    }
+
+    private String normalizarTrailerYoutube(String trailerUrl) {
+        if (trailerUrl == null || trailerUrl.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(trailerUrl.trim());
+            String host = uri.getHost();
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || uri.getUserInfo() != null
+                    || (uri.getPort() != -1 && uri.getPort() != 443)
+                    || host == null) {
+                throw new IllegalArgumentException();
+            }
+            host = host.toLowerCase(java.util.Locale.ROOT);
+            String videoId = null;
+            if (host.equals("youtu.be") || host.equals("www.youtu.be")) {
+                java.util.regex.Matcher shortLink = java.util.regex.Pattern
+                        .compile("^/([A-Za-z0-9_-]{6,})/?$")
+                        .matcher(uri.getPath());
+                if (shortLink.matches()) {
+                    videoId = shortLink.group(1);
+                }
+            } else if (host.equals("youtube.com") || host.equals("www.youtube.com")
+                    || host.equals("m.youtube.com") || host.equals("youtube-nocookie.com")
+                    || host.equals("www.youtube-nocookie.com")) {
+                if ("/watch".equals(uri.getPath()) && uri.getRawQuery() != null) {
+                    for (String parameter : uri.getRawQuery().split("&")) {
+                        if (parameter.startsWith("v=")) {
+                            videoId = parameter.substring(2);
+                            break;
+                        }
+                    }
+                } else {
+                    java.util.regex.Matcher embedLink = java.util.regex.Pattern
+                            .compile("^/(?:embed|shorts|live)/([A-Za-z0-9_-]{6,})/?$")
+                            .matcher(uri.getPath());
+                    if (embedLink.matches()) {
+                        videoId = embedLink.group(1);
+                    }
+                }
+            }
+            if (videoId == null || !videoId.matches("[A-Za-z0-9_-]{6,}")) {
+                throw new IllegalArgumentException();
+            }
+            return "https://www.youtube-nocookie.com/embed/" + videoId;
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Informe um link válido de trailer do YouTube.", ex);
+        }
     }
 
     private double notaNaEscalaLocal(double notaTmdb) {

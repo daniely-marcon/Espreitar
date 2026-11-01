@@ -9,10 +9,14 @@ Este projeto foi desenvolvido como requisito de avaliação para a disciplina de
 ## 🚀 Funcionalidades
 
 * **Exploração de Catálogo:** Busca de filmes e séries por título consumindo dados de uma API externa (capa, sinopse, ano).
+* **Trailers:** Reprodução na página da mídia de trailers do YouTube importados do TMDb ou adicionados manualmente.
 * **Sistema de Avaliações:** Usuários logados podem atribuir notas de 0 a 5 estrelas e adicionar comentários em texto às obras.
 * **Gestão de Histórico:** Cada usuário possui um perfil próprio para gerenciar, editar ou excluir suas avaliações anteriores.
 * **Autenticação Flexível:** Cadastro manual (e-mail e senha) e suporte a login integrado (Google OAuth).
-* **Moderação:** Painel administrativo para moderação e exclusão de comentários que infrinjam as regras da plataforma.
+* **Recuperação de senha:** Redefinição segura por link temporário enviado pela API HTTPS da Brevo; contas Google também podem definir uma senha para entrar por e-mail.
+* **Moderação:** Painel administrativo para configurar o limite de denúncias antes da remoção automática de uma avaliação, com notificação à pessoa autora.
+* **Cadastro de catálogo:** Inclusão manual de filmes e séries ou preenchimento assistido pelos dados do TMDb.
+* **Acessibilidade e telas móveis:** Navegação por teclado, foco visível, atalho para o conteúdo, estados de carregamento acessíveis, respeito à preferência por movimento reduzido e layout adaptado para celular.
 
 ---
 
@@ -38,7 +42,6 @@ A aplicação adota uma arquitetura em duas camadas, separando o Back-end (API R
 
 **Front-end:**
 * HTML5 / CSS3 / JavaScript (puro)
-* Acessibilidade em conformidade com as diretrizes **WCAG AA**.
 
 ### Identidade visual e interações
 
@@ -55,27 +58,29 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 
 ### Banco de dados e migrações
 
-O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil, `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade, `V5` guarda os metadados TMDb dos pedidos de inclusão, `V6` adiciona trailers e `V7` registra o motivo de cada denúncia. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil, `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade, `V5` guarda os metadados TMDb dos pedidos de inclusão, `V6` adiciona trailers, `V7` registra o motivo de cada denúncia e `V8` cria a configuração do limite de denúncias e os tokens de recuperação de senha.
 
-O backend conecta em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
+O backend conecta ao MySQL em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
 ```bash
 docker compose up -d
 ```
 
-O arquivo `.env` fornece as credenciais ao Compose. Para iniciar o backend, abra outro terminal no diretório `backend/espreitar` e execute:
+O arquivo `.env` versionado está vazio. Para rodar o projeto localmente, preencha-o com as variáveis de `.env.example`, usando valores apropriados para seu ambiente. Para iniciar o backend, abra outro terminal no diretório `backend/espreitar` e execute:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-A configuração local usa `DB_PASSWORD` quando ela está definida; caso contrário, usa `123`. O backend usa a porta `8081` para evitar conflito com a porta `8080` já ocupada neste ambiente. Para iniciar na porta padrão do Spring, remova `server.port=8081` de `application.properties`.
+A configuração local usa `DB_PASSWORD` quando ela está definida; caso contrário, usa `123`. O backend usa a porta `8081` e fica acessível apenas no próprio computador (`127.0.0.1`). Em uma hospedagem, configure `SERVER_ADDRESS=0.0.0.0`; a porta pode ser informada pela variável `PORT` e a conexão JDBC do banco por `DB_URL`.
 
 O phpMyAdmin fica disponível em `http://localhost:8184`; entre com `DB_USER` e `DB_PASSWORD` do `.env` e selecione o banco `espreitar`. Na primeira inicialização do backend, o Flyway aplica as migrações pendentes; nas seguintes, consulta `flyway_schema_history` e executa apenas as novas.
 
 ### Início rápido e teste do efeito dos cards
 
-Configure o `.env` com as variáveis descritas nesta seção. Se o arquivo ainda não existir, copie `.env.example` para `.env`. Depois, execute na raiz do repositório:
+As credenciais usadas neste ambiente de testes são temporárias; as credenciais do Google serão revogadas após os testes. O `.env` incluído no Git está vazio apenas para indicar o arquivo necessário. Preencha uma cópia local com as variáveis de `.env.example` para executar o projeto. Nunca faça commit ou push do `.env` preenchido, pois ele pode conter credenciais.
+
+Depois, execute na raiz do repositório:
 
 ```bash
 docker compose up -d
@@ -83,23 +88,110 @@ cd backend/espreitar
 ./mvnw spring-boot:run
 ```
 
-Quando o backend terminar de iniciar, abra `http://localhost:8081/`. Para conferir o efeito, o catálogo precisa ter ao menos um filme ou série cadastrado; passe o mouse sobre um card para vê-lo subir e inclinar enquanto o pôster aumenta levemente. Também é possível navegar até um card com `Tab` e focá-lo. Em dispositivos sem mouse, o efeito de movimento não é aplicado. Para parar o backend, use `Ctrl+C`; para parar os containers sem apagar os dados, execute `docker compose down` na raiz.
+Quando o backend terminar de iniciar, abra `http://localhost:8081/` no computador. Para testar a aparência de celular sem publicar o site, use o modo de dispositivo do Chrome DevTools descrito abaixo. O botão de trailer aparece no catálogo para mídias do TMDb; se ainda não estiver salvo, o app tenta buscá-lo ao abrir os detalhes. Catálogo e trailers não exigem login. Para parar o backend, use `Ctrl+C`; para parar os containers sem apagar os dados, execute `docker compose down` na raiz.
 
-Copie `.env.example` para `.env` e informe as integrações necessárias:
+#### Simular celular no navegador
 
-* `GOOGLE_CLIENT_ID`: ID de cliente OAuth do tipo Web criado no Google Cloud. Cadastre `http://localhost:8081` como origem JavaScript autorizada.
-* `TMDB_ACCESS_TOKEN`: token de acesso de leitura da API do TMDb, usado para buscar filmes/séries e obter sinopse, ano e pôster. Não é necessário para abrir o catálogo local.
-* `JWT_SECRET`: segredo aleatório de pelo menos 32 caracteres. Os valores de exemplo são apenas para desenvolvimento e devem ser substituídos.
+1. Inicie o banco e o backend, depois abra `http://localhost:8081/` no Chrome.
+2. Pressione `F12` ou `Ctrl+Shift+I` para abrir o DevTools.
+3. Pressione `Ctrl+Shift+M` (no macOS, `Cmd+Shift+M`) para ativar a barra de dispositivos.
+4. Escolha um aparelho ou **Responsive** e teste larguras como 375 px e 320 px; recarregue a página se necessário.
+5. Teste catálogo, busca, botão de trailer, login, menus e formulários. A simulação ajuda a revisar layout e responsividade, mas não substitui um teste em um aparelho real.
 
-O Google autentica e cria a conta no primeiro acesso; também é possível entrar e registrar com e-mail e senha. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no TMDb, escolhe um resultado e confirma; o cadastro também importa a nota média (convertida da escala 0–10 para 0–5) e a quantidade de votos externos. A nota da comunidade e a do TMDb são exibidas separadamente para não misturar fontes; enquanto não houver avaliações locais, o catálogo usa a nota TMDb para exibição e filtro. Apenas mídias já salvas no banco são exibidas como obras disponíveis. Quando uma busca no catálogo não encontra a obra, uma pessoa autenticada pode escolher uma opção do TMDb e enviar um pedido junto com sua nota e comentário; título, sinopse, ano e pôster são obtidos do TMDb e não podem ser alterados no pedido. A equipe administradora recebe uma notificação de novo pedido; se aprovar, a obra é cadastrada e a avaliação é publicada; ao recusar, o pedido é removido. Em ambos os casos, a pessoa solicitante recebe uma notificação. Pedidos pendentes ficam em `admin_solicitacoes.html`. Denúncias podem ser marcadas como contendo spoiler ou palavras ofensivas; a escolha do motivo não altera o comentário original. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
+Para usar o login Google localmente, configure `GOOGLE_CLIENT_ID` no `.env` com o ID do mesmo cliente OAuth usado pelo app e autorize `http://localhost:8081` em **Origens JavaScript autorizadas** no Google Cloud Console. Em uma publicação, autorize a origem HTTPS do domínio público; IPs privados da rede local não são aceitos pelo Google. Também é possível entrar e registrar com e-mail e senha. As senhas novas precisam ter ao menos 8 caracteres, uma letra maiúscula, uma minúscula, um número e um símbolo. Quem entrou com Google pode definir uma senha na tela **Alterar dados** e também passar a entrar por e-mail e senha.
+
+Na administração do catálogo, escolha **Com ajuda do TMDb** para buscar e importar os metadados ou **Cadastro manual** para preencher título, tipo, ano, sinopse, pôster e, opcionalmente, o link de um trailer do YouTube. Os links de vídeo do YouTube são convertidos para um formato seguro de incorporação. O modo assistido importa a nota externa (convertida da escala 0–10 para 0–5), a quantidade de votos e o trailer quando disponíveis. Quando não há trailer cadastrado/encontrado, a tela de detalhes informa apenas que o trailer está indisponível. No painel de denúncias, a administração configura o limite de 1 a 100 denúncias únicas; ao atingir o limite, a avaliação é removida e a pessoa autora recebe uma notificação no app. O valor inicial é 5. Para conceder acesso administrativo a uma conta criada, use o seletor de perfil em **Usuários** ou execute no banco local, substituindo o e-mail:
 
 ```sql
 UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
 ```
 
+### Recuperação de senha por e-mail
+
+A recuperação usa a API HTTPS da Brevo e links de uso único com validade de 30 minutos. Crie uma chave de API na Brevo e configure a chave e um remetente verificado:
+
+```text
+BREVO_API_KEY=sua-chave-de-api-da-brevo
+MAIL_FROM=remetente-verificado@seudominio.com
+APP_PUBLIC_URL=http://localhost:8081
+```
+
+`MAIL_FROM` precisa ser um remetente verificado na Brevo. O `.env` é carregado automaticamente pelo Spring Boot ao executar o projeto a partir da pasta `backend/espreitar`. Em desenvolvimento local, mantenha `APP_PUBLIC_URL=http://localhost:8081`; no Render, use a URL HTTPS pública do serviço. Configure `BREVO_API_KEY`, `MAIL_FROM` e `APP_PUBLIC_URL` no ambiente do deploy. O envio é feito por HTTPS, compatível com o plano Free do Render, que bloqueia conexões SMTP de saída. Nunca publique a chave de API. Sem a chave ou remetente configurado, a tela informa que o envio não está disponível. O formulário não revela se o endereço informado possui uma conta.
+
+### Publicar na Oracle Cloud Always Free
+
+Para este projeto, a opção gratuita mais compatível é uma VM **Oracle Cloud Always Free**: mantém o MySQL atual e roda Java, MySQL e HTTPS juntos. A camada gratuita pode ter falta de capacidade na região escolhida e instâncias consideradas ociosas podem ser recuperadas; consulte as [condições oficiais](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm). Você precisará de uma conta Oracle e de um nome DNS. Para um subdomínio gratuito, consulte o [DuckDNS](https://www.duckdns.org/about.jsp); é um serviço DNS comunitário, sem garantia de disponibilidade.
+
+#### 1. Criar a VM
+
+No console Oracle Cloud, crie uma instância Compute Always Free com Ubuntu 24.04 ARM/Ampere A1. Uma configuração de 1 OCPU e 6 GB RAM fica dentro dos limites Always Free publicados e deixa margem para o MySQL e o Java; a disponibilidade de Ampere varia por região. Guarde o IP público e a chave SSH privada com segurança.
+
+Na rede da instância, permita entrada TCP para 22 (restrinja ao seu IP, se possível), 80 e 443. Depois da conexão, se o firewall UFW estiver ativo, libere as mesmas portas:
+
+```bash
+ssh -i caminho/para/chave.pem ubuntu@IP_PUBLICO
+```
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+```
+
+#### 2. Apontar um domínio gratuito para a VM
+
+Crie um subdomínio no DuckDNS e atualize-o com o IP público da VM seguindo as instruções do próprio DuckDNS. Anote o nome completo, por exemplo `espreitar.duckdns.org`; o Caddy precisa que o DNS já resolva para a VM e que as portas 80/443 estejam acessíveis para emitir HTTPS.
+
+#### 3. Instalar Docker e copiar o projeto
+
+Na VM Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2 git
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+Saia da sessão SSH e conecte novamente para aplicar o grupo Docker. Depois, clone o repositório no qual você publicou o projeto (se for privado, use um método de autenticação Git seguro; nunca coloque senha ou token na URL):
+
+```bash
+git clone https://github.com/daniely-marcon/Espreitar.git
+cd Espreitar
+```
+
+#### 4. Configurar segredos e subir
+
+Crie `.env` **na VM**, sem colocar o arquivo no Git:
+
+```bash
+cp .env.example .env
+nano .env
+chmod 600 .env
+```
+
+Preencha `DB_USER`, `DB_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas fortes; `JWT_SECRET` com uma chave aleatória de pelo menos 32 caracteres; `TMDB_ACCESS_TOKEN` com seu token TMDb; `GOOGLE_CLIENT_ID` com seu cliente OAuth; e `APP_DOMAIN` com o subdomínio completo do DuckDNS. Não copie para o `.env` o texto de exemplo `APP_DOMAIN=app.seudominio.com` como se fosse um domínio seu.
+
+Então inicie os serviços:
+
+```bash
+sudo docker compose -f compose.oracle.yml up -d --build
+sudo docker compose -f compose.oracle.yml logs -f app
+```
+
+Quando os logs mostrarem que o Spring iniciou, abra `https://SEU_SUBDOMINIO.duckdns.org`. No Google Cloud Console, cadastre exatamente essa origem HTTPS em **Origens JavaScript autorizadas** do cliente OAuth. Para publicar atualizações futuras:
+
+```bash
+cd ~/Espreitar
+git pull
+sudo docker compose -f compose.oracle.yml up -d --build
+```
+
+Os dados ficam no volume `mysql_oracle`; não execute `docker compose -f compose.oracle.yml down -v` se quiser preservá-los. Veja os logs com `sudo docker compose -f compose.oracle.yml logs -f app`. O Compose não publica o MySQL nem a porta interna do app para a internet.
+
 Saia e entre novamente para receber um token com a nova permissão. Avaliações são únicas por pessoa e mídia; cada pessoa também pode enviar apenas uma denúncia por avaliação. Denúncias não removem conteúdo automaticamente: a decisão fica com a moderação.
 
-Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. O `.env` é local e não deve ser enviado ao Git; a senha `123` serve apenas para desenvolvimento local e deve ser substituída por uma senha forte antes de compartilhar o ambiente.
+Para encerrar os containers sem apagar os dados, use `docker compose down`. Não use `docker compose down -v`, pois essa opção remove também o volume do MySQL. Os valores de exemplo, como a senha `123`, servem apenas para desenvolvimento local e devem ser substituídos por valores apropriados antes de compartilhar o ambiente. Antes de qualquer commit ou push, confirme que o `.env` está vazio.
 
 ### Testes
 

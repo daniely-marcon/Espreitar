@@ -4,6 +4,7 @@ import com.example.espreitar.model.Midia;
 import com.example.espreitar.model.TipoMidia;
 import com.example.espreitar.model.dto.BuscaExterna;
 import com.example.espreitar.model.dto.DetalheExterno;
+import com.example.espreitar.model.dto.TrailerResposta;
 import com.example.espreitar.service.MidiaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +48,12 @@ public class MidiaController {
     public Midia buscarPorId(@PathVariable Long id) {
         return midiaService.buscarPorId(id);
     }
+
+    @GetMapping("/{id}/trailer")
+    public TrailerResposta buscarTrailer(@PathVariable Long id) {
+        return new TrailerResposta(midiaService.buscarTrailer(id));
+    }
+
     @GetMapping
     public List<Midia> listarTodas(
             @RequestParam(required = false) String q,

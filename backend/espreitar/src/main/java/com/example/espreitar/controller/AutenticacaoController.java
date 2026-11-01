@@ -4,7 +4,10 @@ import com.example.espreitar.model.dto.AuthResposta;
 import com.example.espreitar.model.dto.CadastroUsuario;
 import com.example.espreitar.model.dto.LoginUsuario;
 import com.example.espreitar.model.dto.TokenGoogle;
+import com.example.espreitar.model.dto.RedefinirSenha;
+import com.example.espreitar.model.dto.SolicitarRedefinicaoSenha;
 import com.example.espreitar.service.AutenticacaoAplicacaoService;
+import com.example.espreitar.service.RecuperacaoSenhaService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,12 +21,15 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class AutenticacaoController {
     private final AutenticacaoAplicacaoService autenticacao;
+    private final RecuperacaoSenhaService recuperacaoSenhaService;
     private final String googleClientId;
 
     public AutenticacaoController(
             AutenticacaoAplicacaoService autenticacao,
+            RecuperacaoSenhaService recuperacaoSenhaService,
             @Value("${google.client-id:}") String googleClientId) {
         this.autenticacao = autenticacao;
+        this.recuperacaoSenhaService = recuperacaoSenhaService;
         this.googleClientId = googleClientId;
     }
 
@@ -45,5 +51,17 @@ public class AutenticacaoController {
     @PostMapping("/registro")
     public AuthResposta registrar(@Valid @RequestBody CadastroUsuario dados) {
         return autenticacao.cadastrar(dados);
+    }
+
+    @PostMapping("/esqueci-senha")
+    public Map<String, String> solicitarRedefinicao(@Valid @RequestBody SolicitarRedefinicaoSenha dados) {
+        recuperacaoSenhaService.solicitar(dados);
+        return Map.of("message", "Se houver uma conta com esse e-mail, enviaremos um link de redefinição.");
+    }
+
+    @PostMapping("/redefinir-senha")
+    public Map<String, String> redefinirSenha(@Valid @RequestBody RedefinirSenha dados) {
+        recuperacaoSenhaService.redefinir(dados);
+        return Map.of("message", "Senha redefinida. Você já pode entrar com a nova senha.");
     }
 }

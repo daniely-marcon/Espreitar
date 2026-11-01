@@ -18,9 +18,44 @@ const stars = (value) => {
     return `<span class="estrelas" aria-label="${note} de 5 estrelas">${"★".repeat(note)}${"☆".repeat(5 - note)}</span>`;
 };
 const go = (url) => { location.href = url; };
+const friendlyErrorMessage = (error, fallback = "Não foi possível concluir. Tente novamente.") => {
+    const message = String(error?.message || "");
+    if (/obra|m[ií]dia|filme|s[eé]rie|duplicad/i.test(message)
+            && /(cadastrad|exist|dispon[ií]vel|duplicad)/i.test(message)) {
+        return "Esse filme ou série já existe no catálogo.";
+    }
+    if (/google|credencial|id token/i.test(message) || /\/auth\/google/.test(error?.path || "")) {
+        return "Não foi possível entrar com Google. Confira a configuração do acesso e tente novamente.";
+    }
+    if (/tmdb_access_token|token do tmdb|token tmdb/i.test(message)) {
+        return "A busca de filmes está temporariamente indisponível. Tente novamente mais tarde.";
+    }
+    if (/trailer/i.test(message) || /\/trailer(?:$|[?#])/.test(error?.path || "")) {
+        return "Trailer indisponível.";
+    }
+    if (/\/auth\/esqueci-senha/.test(error?.path || "")) {
+        return "Não foi possível enviar o e-mail de recuperação. Confira a configuração do serviço de e-mail e tente novamente.";
+    }
+    if (/failed to fetch|networkerror|load failed/i.test(message)) {
+        return "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
+    }
+    if (error?.status === 401) return "E-mail ou senha incorretos. Confira os dados e tente novamente.";
+    if (error?.status === 403) return "Você não tem permissão para realizar esta ação.";
+    if (error?.status === 404) return "Não encontramos o item solicitado.";
+    if (error?.status === 409) return "Este item já existe ou não pode ser alterado.";
+    if (error?.status === 503 || error?.status === 502 || error?.status >= 500) {
+        return "Serviço temporariamente indisponível. Tente novamente em alguns instantes.";
+    }
+    if (/exception|stack trace|sql|jdbc|internal server error|failed to|request failed/i.test(message)) {
+        return fallback;
+    }
+    return message || fallback;
+};
 const toast = (message) => {
     const notice = document.createElement("div");
     notice.className = "aviso-flutuante";
+    notice.setAttribute("role", "status");
+    notice.setAttribute("aria-live", "polite");
     notice.textContent = message;
     document.body.appendChild(notice);
     setTimeout(() => notice.remove(), 3000);
@@ -35,7 +70,10 @@ try {
 }
 document.addEventListener("click", (event) => {
     if (!event.target.closest(".acesso")) {
-        document.querySelectorAll(".menu-suspenso").forEach((menu) => { menu.hidden = true; });
+        document.querySelectorAll(".menu-suspenso").forEach((menu) => {
+            menu.hidden = true;
+            document.querySelector(`[aria-controls="${menu.id}"]`)?.setAttribute("aria-expanded", "false");
+        });
     }
 });
 const me = () => auth?.usuario || null;
@@ -51,7 +89,14 @@ const api = async (path, options = {}) => {
         headers.set("Content-Type", "application/json");
         options = { ...options, body: JSON.stringify(options.body) };
     }
-    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    let response;
+    try {
+        response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch (cause) {
+        const error = Object.assign(new Error(cause.message || "Falha de conexão"), { path });
+        console.error("Falha ao conectar com a API.", { path, cause });
+        throw error;
+    }
     if (response.status === 204) return null;
     const data = await response.json().catch(() => null);
     if (!response.ok) {
@@ -59,7 +104,12 @@ const api = async (path, options = {}) => {
             auth = null;
             localStorage.removeItem("espreitar.auth");
         }
-        throw new Error(data?.detail || data?.message || `Falha na solicitação (${response.status}).`);
+        const error = Object.assign(
+            new Error(data?.detail || data?.message || `Falha na solicitação (${response.status}).`),
+            { path, status: response.status },
+        );
+        console.warn("A API recusou a solicitação.", { path, status: response.status, detail: error.message });
+        throw error;
     }
     return data;
 };
@@ -84,12 +134,15 @@ const poster = (url, title) => {
 function header() {
     const container = $("#cabecalho");
     if (!container) return;
+    $("#conteudo")?.setAttribute("tabindex", "-1");
     if (document.body.dataset.simples) {
-        container.innerHTML = `<header class="cabecalho simples"><a class="logo" href="index.html"><img src="../midia/logo (2).png" width="92" height="92" alt="Logo do Espreitar"><h1>Espreitar</h1></a></header>`;
+        container.innerHTML = `<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+          <header class="cabecalho simples"><a class="logo" href="index.html"><img src="../midia/logo (2).png" width="92" height="92" alt="Logo do Espreitar"><h1>Espreitar</h1></a></header>`;
         return;
     }
     const user = me();
-    container.innerHTML = `<header class="cabecalho">
+    container.innerHTML = `<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <header class="cabecalho">
       <a class="logo" href="index.html"><img src="../midia/logo (2).png" width="64" height="64" alt="Logo do Espreitar"><h1>Espreitar</h1></a>
       <div class="busca">
         <select class="categoria" id="categoria" aria-label="Categoria">
@@ -104,7 +157,8 @@ function header() {
         <button type="submit" aria-label="Buscar"><i class="fa fa-search"></i></button>
       </form>
       <aside class="acesso">${user
-        ? `<button class="btn-icone botao-notificacao" id="notificacao" type="button" aria-label="Notificações">
+        ? `<button class="btn-icone botao-notificacao" id="notificacao" type="button" aria-label="Notificações"
+             aria-controls="lista-notificacoes" aria-expanded="false">
              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
              <span class="notificacao-contador" id="notificacao-contador" hidden></span>
            </button>
@@ -112,7 +166,8 @@ function header() {
                 ? `<img class="foto-usuario" src="${safeImage(user.fotoPerfil)}" alt="Foto de ${escapeHtml(user.nome)}">`
                 : ""}
            <div class="usuario"><div class="saudacao">Olá, ${escapeHtml(user.nome)}</div></div>
-           <button class="btn-icone" id="botao-menu" type="button" aria-label="Menu">⋮</button>
+           <button class="btn-icone" id="botao-menu" type="button" aria-label="Menu"
+             aria-controls="menu-opcoes" aria-expanded="false">⋮</button>
            <div class="menu-suspenso" id="menu-opcoes" hidden>
              <a href="dados.html">Alterar dados</a><a href="user.html">Minhas revisões</a>
              ${user.perfil === "ADMIN" ? '<a href="admin_denuncias.html">Denúncias</a><a href="admin_solicitacoes.html">Pedidos</a><a href="admin_filmes.html">Catálogo</a><a href="admin_usuarios.html">Usuários</a>' : ""}
@@ -155,17 +210,27 @@ function header() {
 function toggleMenu(id) {
     const menu = document.getElementById(id);
     if (!menu) return;
-    document.querySelectorAll(".menu-suspenso").forEach((item) => { item.hidden = true; });
+    document.querySelectorAll(".menu-suspenso").forEach((item) => {
+        item.hidden = true;
+        document.querySelector(`[aria-controls="${item.id}"]`)?.setAttribute("aria-expanded", "false");
+    });
     menu.hidden = !menu.hidden;
+    document.querySelector(`[aria-controls="${id}"]`)?.setAttribute("aria-expanded", String(!menu.hidden));
 }
 
 async function mostrarNotificacoes() {
     const menu = $("#lista-notificacoes");
     if (!menu) return;
     try {
-        const notifications = await api("/usuarios/me/notificacoes");
+        const notifications = [...new Set(await api("/usuarios/me/notificacoes"))];
         menu.innerHTML = notifications.length
-            ? notifications.map((item) => `<p class="aviso">${escapeHtml(item)}</p>`).join("")
+            ? notifications.map((item) => {
+                const match = item.match(/ \[MIDIA_ID=(\d+)\]$/);
+                const mensagem = escapeHtml(match ? item.slice(0, match.index) : item);
+                return match
+                    ? `<a class="aviso aviso-link" href="filme.html?id=${encodeURIComponent(match[1])}">${mensagem}</a>`
+                    : `<p class="aviso">${mensagem}</p>`;
+            }).join("")
             : '<p class="aviso aviso-vazio">Sem notificações</p>';
         toggleMenu("lista-notificacoes");
         if (notifications.length) {
@@ -173,7 +238,7 @@ async function mostrarNotificacoes() {
             atualizarIndicadorNotificacoes(0);
         }
     } catch (error) {
-        toast(error.message);
+        toast(friendlyErrorMessage(error));
     }
 }
 
@@ -207,6 +272,7 @@ window.go = go;
 window.toast = toast;
 window.header = header;
 window.escapeHtml = escapeHtml;
+window.friendlyErrorMessage = friendlyErrorMessage;
 window.poster = poster;
 window.stars = stars;
 window.requireLogin = requireLogin;

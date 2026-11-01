@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 public record AtualizarPerfil(
         @NotBlank @Size(max = 100) String nome,
         @NotBlank @Email @Size(max = 150) String email,
-        @Size(min = 8, max = 72) String senha,
+        @Size(max = 72) String senha,
         @Size(max = 50000) String fotoPerfil
 ) {
 }

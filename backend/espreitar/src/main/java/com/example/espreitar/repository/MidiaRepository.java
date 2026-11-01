@@ -22,6 +22,32 @@ public interface MidiaRepository extends JpaRepository<Midia, Long> {
     /** Checagem de duplicata antes de cadastrar uma obra manualmente. */
     boolean existsByTituloIgnoreCaseAndAnoAndTipo(String titulo, Integer ano, TipoMidia tipo);
 
+    @Query("""
+            SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
+            FROM Midia m
+            WHERE LOWER(TRIM(m.titulo)) = LOWER(TRIM(:titulo))
+              AND m.tipo = :tipo
+              AND ((:ano IS NULL AND m.ano IS NULL) OR m.ano = :ano)
+              AND (:ignorarId IS NULL OR m.id <> :ignorarId)
+            """)
+    boolean existsDuplicate(
+            @Param("titulo") String titulo,
+            @Param("ano") Integer ano,
+            @Param("tipo") TipoMidia tipo,
+            @Param("ignorarId") Long ignorarId);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
+            FROM Midia m
+            WHERE LOWER(TRIM(m.titulo)) = LOWER(TRIM(:titulo))
+              AND m.tipo = :tipo
+              AND (:ano IS NULL OR m.ano IS NULL OR m.ano = :ano)
+            """)
+    boolean existsDuplicateForRequest(
+            @Param("titulo") String titulo,
+            @Param("ano") Integer ano,
+            @Param("tipo") TipoMidia tipo);
+
     /** Destaques da pagina principal (RF09). */
     Page<Midia> findAllByOrderByNotaMediaDescTotalAvaliacoesDesc(Pageable pageable);
 

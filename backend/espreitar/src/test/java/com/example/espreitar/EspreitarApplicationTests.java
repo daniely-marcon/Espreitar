@@ -3,6 +3,7 @@ package com.example.espreitar;
 import com.example.espreitar.model.Perfil;
 import com.example.espreitar.model.Midia;
 import com.example.espreitar.model.MotivoDenuncia;
+import com.example.espreitar.model.Provedor;
 import com.example.espreitar.model.Solicitacao;
 import com.example.espreitar.model.StatusSolicitacao;
 import com.example.espreitar.model.TipoMidia;
@@ -12,10 +13,12 @@ import com.example.espreitar.model.dto.CadastroUsuario;
 import com.example.espreitar.service.AutenticacaoAplicacaoService;
 import com.example.espreitar.service.AvaliacaoService;
 import com.example.espreitar.service.DenunciaService;
+import com.example.espreitar.service.ConfiguracaoSistemaService;
 import com.example.espreitar.service.MidiaService;
 import com.example.espreitar.service.SolicitacaoService;
 import com.example.espreitar.service.UsuarioService;
 import com.example.espreitar.repository.AvaliacaoRepository;
+import com.example.espreitar.repository.DenunciaRepository;
 import com.example.espreitar.repository.MidiaRepository;
 import com.example.espreitar.repository.SolicitacaoRepository;
 import com.example.espreitar.repository.UsuarioRepository;
@@ -59,6 +62,9 @@ class EspreitarApplicationTests {
 	private AvaliacaoRepository avaliacaoRepository;
 
 	@Autowired
+	private DenunciaRepository denunciaRepository;
+
+	@Autowired
 	private AutenticacaoAplicacaoService autenticacaoAplicacaoService;
 
 	@Autowired
@@ -66,6 +72,9 @@ class EspreitarApplicationTests {
 
 	@Autowired
 	private DenunciaService denunciaService;
+
+	@Autowired
+	private ConfiguracaoSistemaService configuracaoSistemaService;
 
 	@Autowired
 	private MidiaService midiaService;
@@ -118,12 +127,68 @@ class EspreitarApplicationTests {
 	@Test
 	void cadastroELoginLocalEmitemToken() {
 		var cadastro = autenticacaoAplicacaoService.cadastrar(
-				new CadastroUsuario("Pessoa de teste", "pessoa.teste@example.com", "SenhaForte123", null));
+				new CadastroUsuario("Pessoa de teste", "pessoa.teste@example.com", "SenhaForte123!", null));
 
 		assertEquals("pessoa.teste@example.com", cadastro.usuario().email());
 		assertEquals(3, cadastro.token().split("\\.").length);
 		assertEquals(cadastro.usuario().email(),
-				autenticacaoAplicacaoService.login("PESSOA.TESTE@example.com", "SenhaForte123").usuario().email());
+				autenticacaoAplicacaoService.login("PESSOA.TESTE@example.com", "SenhaForte123!").usuario().email());
+	}
+
+	@Test
+	void cadastroAceitaSenhaForteComOitoCaracteres() {
+		var cadastro = autenticacaoAplicacaoService.cadastrar(
+				new CadastroUsuario("Senha mínima", "senha.minima@example.com", "Abcdef1!", null));
+
+		assertEquals("senha.minima@example.com", autenticacaoAplicacaoService
+				.login(cadastro.usuario().email(), "Abcdef1!").usuario().email());
+	}
+
+	@Test
+	void cadastroRecusaSenhaFraca() {
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> autenticacaoAplicacaoService.cadastrar(
+						new CadastroUsuario("Senha fraca", "senha.fraca@example.com", "Abc1!xy", null)));
+	}
+
+	@Test
+	void notificacoesRepetidasSaoArmazenadasUmaVez() {
+		Usuario pessoa = usuario("notificacao.unica@example.com");
+		pessoa.adicionarNotificacao("Seu pedido foi aprovado.");
+		pessoa.adicionarNotificacao("Seu pedido foi aprovado.");
+
+		assertEquals(1, usuarioService.listarNotificacoes(pessoa.getEmail()).size());
+	}
+
+	@Test
+	void contaGooglePodeDefinirSenhaParaLoginTradicional() {
+		Usuario google = usuario("google.senha@example.com");
+		google.setProvedor(Provedor.GOOGLE);
+		google.setGoogleId("google-sub-123");
+		google.setSenha(null);
+		usuarioRepository.saveAndFlush(google);
+
+		usuarioService.atualizarPerfil(google.getEmail(),
+				new com.example.espreitar.model.dto.AtualizarPerfil(
+						google.getNome(), google.getEmail(), "SenhaForte123!", null));
+
+		assertEquals(google.getEmail(), autenticacaoAplicacaoService
+				.login(google.getEmail(), "SenhaForte123!").usuario().email());
+	}
+
+	@Test
+	void atualizarPerfilSemSenhaSalvaOsOutrosDadosEMantemSenhaAtual() {
+		Usuario pessoa = usuario("perfil.atualizar@example.com");
+		String senhaAtual = pessoa.getSenha();
+
+		usuarioService.atualizarPerfil(pessoa.getEmail(),
+				new com.example.espreitar.model.dto.AtualizarPerfil(
+						"Nome atualizado", "perfil.novo@example.com", null, null));
+
+		Usuario atualizado = usuarioRepository.findById(pessoa.getId()).orElseThrow();
+		assertEquals("Nome atualizado", atualizado.getNome());
+		assertEquals("perfil.novo@example.com", atualizado.getEmail());
+		assertEquals(senhaAtual, atualizado.getSenha());
 	}
 
 	@Test
@@ -132,6 +197,17 @@ class EspreitarApplicationTests {
 				.andExpect(status().isOk());
 		mockMvc.perform(get("/midias"))
 				.andExpect(status().isOk());
+	}
+
+	@Test
+	void trailerCadastradoPodeSerConsultadoSemLogin() throws Exception {
+		Midia midia = midia("Obra com trailer");
+		midia.setTrailerUrl("https://www.youtube-nocookie.com/embed/abcdefgh");
+		Midia salva = midiaRepository.saveAndFlush(midia);
+
+		mockMvc.perform(get("/midias/" + salva.getId() + "/trailer"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.trailerUrl").value(midia.getTrailerUrl()));
 	}
 
 	@Test
@@ -191,15 +267,83 @@ class EspreitarApplicationTests {
 	}
 
 	@Test
+	@WithMockUser(username = "denunciante.http@example.com", roles = "USER")
+	void endpointHttpRegistraDenunciaDeUsuarioAutenticado() throws Exception {
+		Usuario autor = usuario("autor.denuncia.http@example.com");
+		usuario("denunciante.http@example.com");
+		Midia midia = midiaRepository.saveAndFlush(midia("Obra denunciada via HTTP"));
+		var review = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(1, "Comentário denunciado via HTTP", false));
+
+		mockMvc.perform(post("/denuncias")
+						.param("avaliacaoId", review.id().toString())
+						.param("motivo", "PALAVRAS_OFENSIVAS"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.avaliacaoId").value(review.id()))
+				.andExpect(jsonPath("$.motivo").value("PALAVRAS_OFENSIVAS"))
+				.andExpect(jsonPath("$.totalDenuncias").value(1));
+
+		assertEquals(1, denunciaRepository.countByAvaliacaoId(review.id()));
+		assertTrue(avaliacaoRepository.existsById(review.id()));
+	}
+
+	@Test
+	void limiteDeDenunciasExcluiAvaliacaoENotificaAutora() {
+		Usuario autor = usuario("autor.limite@example.com");
+		Usuario denunciante = usuario("denunciante.limite@example.com");
+		Midia midia = midiaRepository.save(midia("Obra com limite"));
+		var review = avaliacaoService.cadastrar(autor.getEmail(), midia.getId(),
+				new AvaliacaoEntrada(4, "Comentário denunciado", false));
+		configuracaoSistemaService.atualizarLimiteDenuncias(
+				new com.example.espreitar.model.dto.LimiteDenuncias(1));
+
+		denunciaService.criarDenuncia(denunciante.getEmail(), review.id(), MotivoDenuncia.OUTRO);
+
+		assertTrue(!avaliacaoRepository.existsById(review.id()));
+		assertTrue(usuarioRepository.findById(autor.getId()).orElseThrow().getNotificacoes()
+				.stream().anyMatch(mensagem -> mensagem.contains("removida automaticamente")));
+		assertTrue(usuarioRepository.findById(autor.getId()).orElseThrow().getNotificacoes()
+				.stream().anyMatch(mensagem -> mensagem.endsWith("[MIDIA_ID=" + midia.getId() + "]")));
+	}
+
+	@Test
 	void cadastroHttpEmiteRespostaSemExporSenha() throws Exception {
 		mockMvc.perform(post("/auth/registro")
 						.contentType("application/json")
 						.content("""
-								{"nome":"Conta HTTP","email":"http.teste@example.com","senha":"SenhaForte123"}
+								{"nome":"Conta HTTP","email":"http.teste@example.com","senha":"SenhaForte123!"}
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").isNotEmpty())
 				.andExpect(jsonPath("$.usuario.senha").doesNotExist());
+	}
+
+	@Test
+	void cadastroManualCriaObraSemDadosExternos() {
+		Midia manual = new Midia();
+		manual.setTipo(TipoMidia.FILME);
+		manual.setTitulo("Obra cadastrada manualmente");
+		manual.setAno(2026);
+		manual.setSinopse("Sinopse preenchida pela administração.");
+		manual.setTrailerUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+
+		Midia salva = midiaService.cadastrarMidia(manual);
+
+		assertEquals(null, salva.getIdExterno());
+		assertEquals(0.0, salva.getNotaMediaExterna(), 0.0001);
+		assertEquals(0, salva.getTotalAvaliacoesExternas());
+		assertEquals("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", salva.getTrailerUrl());
+	}
+
+	@Test
+	void cadastroManualRejeitaLinkQueNaoSejaDoYoutube() {
+		Midia manual = new Midia();
+		manual.setTipo(TipoMidia.FILME);
+		manual.setTitulo("Obra com link inválido");
+		manual.setTrailerUrl("https://example.com/video");
+
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> midiaService.cadastrarMidia(manual));
 	}
 
 	@Test
@@ -213,6 +357,47 @@ class EspreitarApplicationTests {
 
 		assertEquals(4.35, recarregada.getNotaMediaExterna(), 0.0001);
 		assertEquals(12500, recarregada.getTotalAvaliacoesExternas());
+	}
+
+	@Test
+	void cadastroDaMidiaRejeitaDuplicataPorTituloAnoETipo() {
+		Midia original = midia("Filme repetido");
+		original.setAno(2024);
+		midiaService.cadastrarMidia(original);
+
+		Midia duplicada = midia("  filme repetido  ");
+		duplicada.setIdExterno("outro-id-externo");
+		duplicada.setAno(2024);
+
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> midiaService.cadastrarMidia(duplicada));
+		assertTrue(midiaRepository.existsDuplicate("Filme repetido", 2024, TipoMidia.FILME, null));
+	}
+
+	@Test
+	void cadastroDaMidiaRejeitaDuplicataComAnoNulo() {
+		Midia original = midia("Série sem ano");
+		original.setTipo(TipoMidia.SERIE);
+		original.setAno(null);
+		midiaService.cadastrarMidia(original);
+
+		Midia duplicada = midia("Série sem ano");
+		duplicada.setIdExterno("outro-id-de-serie");
+		duplicada.setTipo(TipoMidia.SERIE);
+		duplicada.setAno(null);
+
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> midiaService.cadastrarMidia(duplicada));
+	}
+
+	@Test
+	void pedidoDetectaObraExistenteMesmoQuandoAnoDoPedidoEstaIndisponivel() {
+		Midia existente = midia("Título com ano conhecido");
+		existente.setAno(2024);
+		midiaService.cadastrarMidia(existente);
+
+		assertTrue(midiaRepository.existsDuplicateForRequest(
+				"  título com ano conhecido ", null, TipoMidia.FILME));
 	}
 
 	@Test
@@ -232,7 +417,8 @@ class EspreitarApplicationTests {
 		assertEquals(5, avaliacao.getNota());
 		assertEquals("Quero ver esse filme", avaliacao.getComentario());
 		assertTrue(usuarioRepository.findById(pessoa.getId()).orElseThrow().getNotificacoes().stream()
-				.anyMatch(mensagem -> mensagem.contains("foi aprovada")));
+				.anyMatch(mensagem -> mensagem.contains("foi aprovada")
+						&& mensagem.endsWith("[MIDIA_ID=" + midia.getId() + "]")));
 		assertTrue(solicitacaoRepository.findById(solicitacao.getId()).isEmpty());
 	}
 
