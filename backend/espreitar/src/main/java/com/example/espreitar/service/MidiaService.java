@@ -40,8 +40,12 @@ public class MidiaService {
                 || midia.getTotalAvaliacoesExternas() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nota ou total de votos do TMDb inválido.");
         }
-        if (midiaRepository.findByIdExternoAndTipo(midia.getIdExterno(), midia.getTipo()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta obra já está cadastrada.");
+        midia.setIdExterno(midia.getIdExterno().trim());
+        midia.setTitulo(midia.getTitulo().trim());
+        if (midiaRepository.findByIdExternoAndTipo(midia.getIdExterno(), midia.getTipo()).isPresent()
+                || midiaRepository.existsDuplicate(
+                        midia.getTitulo(), midia.getAno(), midia.getTipo(), null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         return midiaRepository.save(midia);
     }
@@ -79,7 +83,12 @@ public class MidiaService {
         Midia midiaExistente = midiaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
 
-        midiaExistente.setTitulo(dadosAtualizados.getTitulo());
+        String titulo = dadosAtualizados.getTitulo().trim();
+        if (midiaRepository.existsDuplicate(
+                titulo, dadosAtualizados.getAno(), dadosAtualizados.getTipo(), id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta obra já está cadastrada.");
+        }
+        midiaExistente.setTitulo(titulo);
         midiaExistente.setAno(dadosAtualizados.getAno());
         midiaExistente.setTipo(dadosAtualizados.getTipo());
         midiaExistente.setSinopse(dadosAtualizados.getSinopse());
@@ -92,6 +101,22 @@ public class MidiaService {
     public Midia buscarPorId(Long id) {
         return midiaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mídia não encontrada."));
+    }
+
+    public String buscarTrailer(Long id) {
+        Midia midia = buscarPorId(id);
+        if (midia.getTrailerUrl() != null && !midia.getTrailerUrl().isBlank()) {
+            return midia.getTrailerUrl();
+        }
+        if (midia.getIdExterno() == null || !midia.getIdExterno().matches("\\d+")) {
+            return null;
+        }
+        String trailerUrl = buscarDetalheExterno(midia.getIdExterno(), midia.getTipo()).trailerUrl();
+        if (trailerUrl != null && !trailerUrl.isBlank()) {
+            midia.setTrailerUrl(trailerUrl);
+            midiaRepository.save(midia);
+        }
+        return trailerUrl;
     }
 
     public List<BuscaExterna> buscarExterna(String termo, TipoMidia tipo) {

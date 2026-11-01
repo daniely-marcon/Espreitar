@@ -135,6 +135,17 @@ class EspreitarApplicationTests {
 	}
 
 	@Test
+	void trailerCadastradoPodeSerConsultadoSemLogin() throws Exception {
+		Midia midia = midia("Obra com trailer");
+		midia.setTrailerUrl("https://www.youtube-nocookie.com/embed/abcdefgh");
+		Midia salva = midiaRepository.saveAndFlush(midia);
+
+		mockMvc.perform(get("/midias/" + salva.getId() + "/trailer"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.trailerUrl").value(midia.getTrailerUrl()));
+	}
+
+	@Test
 	@WithMockUser(roles = "ADMIN")
 	void administradorPodeConsultarResumoDeUsuariosSemDadosSecretos() throws Exception {
 		Usuario usuario = usuario("resumo.admin@example.com");
@@ -213,6 +224,37 @@ class EspreitarApplicationTests {
 
 		assertEquals(4.35, recarregada.getNotaMediaExterna(), 0.0001);
 		assertEquals(12500, recarregada.getTotalAvaliacoesExternas());
+	}
+
+	@Test
+	void cadastroDaMidiaRejeitaDuplicataPorTituloAnoETipo() {
+		Midia original = midia("Filme repetido");
+		original.setAno(2024);
+		midiaService.cadastrarMidia(original);
+
+		Midia duplicada = midia("  filme repetido  ");
+		duplicada.setIdExterno("outro-id-externo");
+		duplicada.setAno(2024);
+
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> midiaService.cadastrarMidia(duplicada));
+		assertTrue(midiaRepository.existsDuplicate("Filme repetido", 2024, TipoMidia.FILME, null));
+	}
+
+	@Test
+	void cadastroDaMidiaRejeitaDuplicataComAnoNulo() {
+		Midia original = midia("Série sem ano");
+		original.setTipo(TipoMidia.SERIE);
+		original.setAno(null);
+		midiaService.cadastrarMidia(original);
+
+		Midia duplicada = midia("Série sem ano");
+		duplicada.setIdExterno("outro-id-de-serie");
+		duplicada.setTipo(TipoMidia.SERIE);
+		duplicada.setAno(null);
+
+		assertThrows(org.springframework.web.server.ResponseStatusException.class,
+				() -> midiaService.cadastrarMidia(duplicada));
 	}
 
 	@Test

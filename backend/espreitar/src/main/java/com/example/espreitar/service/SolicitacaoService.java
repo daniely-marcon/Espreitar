@@ -37,8 +37,9 @@ public class SolicitacaoService {
         Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
         DetalheExterno externo = midiaService.buscarDetalheExterno(dados.idExterno(), dados.tipo());
-        if (midiaRepository.findByIdExternoAndTipo(externo.idExterno(), dados.tipo()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Essa mídia já está disponível no catálogo.");
+        if (midiaRepository.findByIdExternoAndTipo(externo.idExterno(), dados.tipo()).isPresent()
+                || midiaRepository.existsDuplicate(externo.titulo(), externo.ano(), dados.tipo(), null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         if (solicitacaoRepository.existsByUsuarioIdAndIdExternoAndTipoAndStatus(
                 usuario.getId(), externo.idExterno(), dados.tipo(), StatusSolicitacao.PENDENTE)) {
@@ -86,13 +87,13 @@ public class SolicitacaoService {
     @Transactional
     public Midia aprovarSolicitacao(Long solicitacaoId) {
         Solicitacao solicitacao = buscar(solicitacaoId);
-        if (midiaRepository.existsByTituloIgnoreCaseAndAnoAndTipo(
-                solicitacao.getTitulo(), solicitacao.getAno(), solicitacao.getTipo())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Essa mídia já existe no catálogo.");
+        if (midiaRepository.existsDuplicate(
+                solicitacao.getTitulo(), solicitacao.getAno(), solicitacao.getTipo(), null)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         if (solicitacao.getIdExterno() != null
                 && midiaRepository.findByIdExternoAndTipo(solicitacao.getIdExterno(), solicitacao.getTipo()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Essa mídia já existe no catálogo.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         Midia novaMidia = new Midia();
         novaMidia.setIdExterno(solicitacao.getIdExterno());

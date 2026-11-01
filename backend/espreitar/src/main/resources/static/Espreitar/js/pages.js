@@ -16,7 +16,7 @@ const motivoDenunciaLabel = (motivo) => ({
     PALAVRAS_OFENSIVAS: "Palavras ofensivas",
     OUTRO: "Outro motivo",
 }[motivo] || "Outro motivo");
-const showError = (error) => toast(error?.message || "Não foi possível concluir a operação.");
+const showError = (error) => toast(friendlyErrorMessage(error));
 const emptyState = (title, message) => `<div class="estado-vazio">
   <img src="../midia/sem-resultados.svg" alt="" width="180" height="140">
   <h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p>
@@ -47,25 +47,29 @@ async function pageHome() {
                 const idsNoCatalogo = new Set(all.map((item) => `${item.idExterno}:${item.tipo}`));
                 sugestoesExternas = resultados.flat().filter((item) => !idsNoCatalogo.has(`${item.idExterno}:${item.tipo}`));
             } catch (error) {
-                erroBuscaExterna = error.message;
+                console.error("Falha ao buscar títulos no TMDb.", error);
+                erroBuscaExterna = friendlyErrorMessage(error, "A busca de filmes está temporariamente indisponível.");
             }
         }
         const destaque = term ? null : media[0];
         const restante = destaque ? media.slice(1) : media;
-        const catalogo = (items) => items.map((item) => `<article class="card" role="link" tabindex="0"
-              onclick="go('filme.html?id=${item.id}')" onkeydown="if(event.key==='Enter')go('filme.html?id=${item.id}')">
-              ${poster(item.cartaz, item.titulo)}<h3>${escapeHtml(item.titulo)}</h3>
-              <small>${escapeHtml(item.ano || "")} · ${escapeHtml(item.tipo === "SERIE" ? "Série" : "Filme")}</small>
-              <div class="avaliacao">${stars(Number(item.totalAvaliacoes) > 0 ? item.notaMedia : item.notaMediaExterna)}
-                <span>${Number(item.totalAvaliacoes) > 0
+        const catalogo = (items) => items.map((item) => `<article class="card">
+              <a class="card-link" href="filme.html?id=${encodeURIComponent(item.id)}">
+                ${poster(item.cartaz, item.titulo)}<h3>${escapeHtml(item.titulo)}</h3>
+                <small>${escapeHtml(item.ano || "")} · ${escapeHtml(item.tipo === "SERIE" ? "Série" : "Filme")}</small>
+                <div class="avaliacao">${stars(Number(item.totalAvaliacoes) > 0 ? item.notaMedia : item.notaMediaExterna)}
+                  <span>${Number(item.totalAvaliacoes) > 0
                     ? `${Number(item.totalAvaliacoes)} avaliações`
                     : `${formatRating(item.notaMediaExterna)}/5 · ${Number(item.totalAvaliacoesExternas) || 0} votos TMDb`}</span></div>
+              </a>
+              ${safeTrailer(item.trailerUrl) || /^\d+$/.test(item.idExterno || "") ? `<a class="trailer-cta"
+                href="${trailerWatchUrl(item.trailerUrl) || `filme.html?id=${encodeURIComponent(item.id)}#trailer-player`}"
+                ${trailerWatchUrl(item.trailerUrl) ? 'target="_blank" rel="noopener noreferrer"' : ""}
+                aria-label="Assistir trailer de ${escapeHtml(item.titulo)}">▶ Assistir trailer</a>` : ""}
             </article>`).join("");
         pageContent().innerHTML = `<main>
           <h2 class="secao-titulo">${term ? `Resultados para “${escapeHtml(term)}”` : "Em Destaque"}</h2>
-          ${destaque ? `<article class="destaque-hero" role="link" tabindex="0"
-              onclick="go('filme.html?id=${destaque.id}')"
-              onkeydown="if(event.key==='Enter')go('filme.html?id=${destaque.id}')">
+          ${destaque ? `<article class="destaque-hero">
               ${poster(destaque.cartaz, destaque.titulo)}
               <div class="destaque-info"><small>DESTAQUE</small>
                 <h1>${escapeHtml(destaque.titulo)}</h1>
@@ -75,7 +79,11 @@ async function pageHome() {
                   <small>${Number(destaque.totalAvaliacoes) > 0
                     ? `${Number(destaque.totalAvaliacoes)} avaliações da comunidade`
                     : `${formatRating(destaque.notaMediaExterna)}/5 · ${Number(destaque.totalAvaliacoesExternas) || 0} votos TMDb`}</small>
-                </div><span class="destaque-cta">Ver detalhes</span>
+                </div><a class="destaque-cta" href="filme.html?id=${encodeURIComponent(destaque.id)}">Ver detalhes</a>
+                ${safeTrailer(destaque.trailerUrl) || /^\d+$/.test(destaque.idExterno || "") ? `<a class="trailer-cta"
+                  href="${trailerWatchUrl(destaque.trailerUrl) || `filme.html?id=${encodeURIComponent(destaque.id)}#trailer-player`}"
+                  ${trailerWatchUrl(destaque.trailerUrl) ? 'target="_blank" rel="noopener noreferrer"' : ""}
+                  aria-label="Assistir trailer de ${escapeHtml(destaque.titulo)}">▶ Assistir trailer</a>` : ""}
               </div>
             </article>` : ""}
           ${restante.length ? `<h2 class="secao-titulo">${destaque ? "Mais para assistir" : "No catálogo"}</h2>
@@ -121,6 +129,30 @@ async function pageFilme() {
             api(`/midias/${encodeURIComponent(currentMediaId)}`),
             api(`/avaliacoes/midia/${encodeURIComponent(currentMediaId)}`),
         ]);
+        let trailerUrl = safeTrailer(media.trailerUrl);
+        let trailerError = "";
+        const hasTmdbId = /^\d+$/.test(media.idExterno || "");
+        if (!trailerUrl && hasTmdbId) {
+            try {
+                trailerUrl = safeTrailer((await api(`/midias/${encodeURIComponent(currentMediaId)}/trailer`)).trailerUrl);
+            } catch (error) {
+                console.error("Falha ao buscar trailer da mídia.", error);
+                trailerError = friendlyErrorMessage(error, "Trailer não está disponível no momento.");
+            }
+        }
+        const trailerMarkup = trailerUrl
+            ? `<section class="trailer-midia" id="trailer-midia">
+                <h3>Trailer</h3>
+                <a class="trailer-cta" href="${trailerWatchUrl(trailerUrl)}" target="_blank" rel="noopener noreferrer"
+                  aria-label="Assistir trailer de ${escapeHtml(media.titulo)}">▶ Abrir trailer no YouTube</a>
+                <iframe src="${trailerUrl}" title="Trailer de ${escapeHtml(media.titulo)}"
+                  id="trailer-player"
+                  loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen></iframe></section>`
+            : trailerError
+                ? `<p id="trailer-player" class="trailer-indisponivel" role="status">Não foi possível carregar o trailer: ${escapeHtml(trailerError)}</p>`
+                : hasTmdbId ? '<p id="trailer-player" class="trailer-indisponivel" role="status">Trailer não encontrado no TMDb.</p>' : "";
         loadedReviews.clear();
         reviews.forEach((review) => loadedReviews.set(review.id, review));
         pageContent().innerHTML = `<main>
@@ -132,16 +164,15 @@ async function pageFilme() {
               <span>${formatRating(media.notaMediaExterna)}/5 · ${Number(media.totalAvaliacoesExternas) || 0} votos no TMDb</span></div>
             <small>${escapeHtml(media.ano || "")}</small>
             <p>${escapeHtml(media.sinopse || "Sinopse indisponível.")}</p>
-            ${safeTrailer(media.trailerUrl) ? `<section class="trailer-midia"><h3>Trailer</h3>
-              <iframe src="${safeTrailer(media.trailerUrl)}" title="Trailer de ${escapeHtml(media.titulo)}"
-                loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen></iframe></section>` : ""}
           </div></div>
+          ${trailerMarkup}
           <h2 class="secao-titulo">Revisões</h2>
           <label class="filtro-spoiler"><input id="filtro-spoiler" type="checkbox" checked> Ocultar spoilers</label>
           <div id="lista-revisoes">${reviews.map(reviewCard).join("") || "<p>Seja a primeira pessoa a avaliar.</p>"}</div>
-          <button class="btn-adicionar" id="adicionar-revisao" title="Adicionar comentário" aria-label="Adicionar comentário">+</button>
+          <button class="btn-adicionar" id="adicionar-revisao" type="button" aria-label="Adicionar comentário">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M12.5 8v7m-3.5-3.5h7"/></svg>
+            <span>Adicionar comentário</span>
+          </button>
         </main>`;
         $("#adicionar-revisao").addEventListener("click", () => abrirRevisao());
         $("#filtro-spoiler").addEventListener("change", (event) => {
@@ -159,6 +190,9 @@ async function pageFilme() {
         document.querySelectorAll(".btn-editar-revisao").forEach((button) => {
             button.addEventListener("click", () => editarRevisao(loadedReviews.get(Number(button.dataset.id))));
         });
+        if (location.hash === "#trailer-player") {
+            $("#trailer-player")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
     } catch (error) {
         pageContent().innerHTML = "<main><p>Não foi possível carregar esta mídia.</p></main>";
         showError(error);
@@ -186,6 +220,13 @@ function safeTrailer(value) {
     if (typeof value !== "string") return "";
     const match = value.match(/^https:\/\/www\.youtube-nocookie\.com\/embed\/([A-Za-z0-9_-]{6,})$/);
     return match ? `https://www.youtube-nocookie.com/embed/${match[1]}` : "";
+}
+
+function trailerWatchUrl(value) {
+    const embed = safeTrailer(value);
+    if (!embed) return "";
+    const videoId = embed.slice(embed.lastIndexOf("/") + 1);
+    return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 async function iniciarPedidoMidia(idExterno, tipo) {
@@ -221,6 +262,7 @@ async function iniciarPedidoMidia(idExterno, tipo) {
             if (event.target.id === "pedido-fundo") $("#area-popup").innerHTML = "";
         });
     } catch (error) {
+        container.textContent = friendlyErrorMessage(error, "Não foi possível carregar o login Google.");
         showError(error);
     }
 }
@@ -579,6 +621,8 @@ async function setupGoogleSignIn() {
                     setAuth(await api("/auth/google", { method: "POST", body: { credential } }));
                     go("index.html");
                 } catch (error) {
+                    const help = container.parentElement?.querySelector(".google-ajuda");
+                    if (help) help.textContent = friendlyErrorMessage(error);
                     showError(error);
                 }
             },
@@ -587,7 +631,9 @@ async function setupGoogleSignIn() {
             type: "standard", theme: "outline", size: "large", text: "continue_with",
             shape: "rectangular", width: Math.min(container.parentElement.clientWidth, 320),
         });
+        container.insertAdjacentHTML("afterend", '<small class="google-ajuda">O login Google depende da autorização do endereço deste site nas configurações do OAuth.</small>');
     } catch (error) {
+        container.textContent = friendlyErrorMessage(error, "Não foi possível carregar o login Google.");
         showError(error);
     }
 }
@@ -734,7 +780,11 @@ async function buscarExterna() {
             button.addEventListener("click", () => selecionarExterno(button.dataset.id, button.dataset.type));
         });
     } catch (error) {
-        results.innerHTML = emptyState("Não foi possível fazer a busca", error.message);
+        console.error("Falha na busca do catálogo administrativo.", error);
+        results.innerHTML = emptyState(
+            "Não foi possível fazer a busca",
+            friendlyErrorMessage(error, "A busca está temporariamente indisponível."),
+        );
     }
 }
 
@@ -774,6 +824,7 @@ async function addConteudo(event) {
     } : {
         idExterno: media.idExterno, tipo: media.tipo, titulo: media.titulo,
         ano: media.ano, sinopse: media.sinopse, cartaz: media.cartaz,
+        trailerUrl: media.trailerUrl,
         notaMediaExterna: media.notaMedia,
         totalAvaliacoesExternas: media.totalAvaliacoes,
     };
