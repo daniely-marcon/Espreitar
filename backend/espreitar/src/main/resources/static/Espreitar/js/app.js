@@ -31,7 +31,7 @@ const friendlyErrorMessage = (error, fallback = "Não foi possível concluir. Te
         return "A busca de filmes está temporariamente indisponível. Tente novamente mais tarde.";
     }
     if (/trailer/i.test(message) || /\/trailer(?:$|[?#])/.test(error?.path || "")) {
-        return "Trailer não está disponível no momento. Tente novamente mais tarde.";
+        return "Trailer indisponível.";
     }
     if (/failed to fetch|networkerror|load failed/i.test(message)) {
         return "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
@@ -219,9 +219,15 @@ async function mostrarNotificacoes() {
     const menu = $("#lista-notificacoes");
     if (!menu) return;
     try {
-        const notifications = await api("/usuarios/me/notificacoes");
+        const notifications = [...new Set(await api("/usuarios/me/notificacoes"))];
         menu.innerHTML = notifications.length
-            ? notifications.map((item) => `<p class="aviso">${escapeHtml(item)}</p>`).join("")
+            ? notifications.map((item) => {
+                const match = item.match(/ \[MIDIA_ID=(\d+)\]$/);
+                const mensagem = escapeHtml(match ? item.slice(0, match.index) : item);
+                return match
+                    ? `<a class="aviso aviso-link" href="filme.html?id=${encodeURIComponent(match[1])}">${mensagem}</a>`
+                    : `<p class="aviso">${mensagem}</p>`;
+            }).join("")
             : '<p class="aviso aviso-vazio">Sem notificações</p>';
         toggleMenu("lista-notificacoes");
         if (notifications.length) {

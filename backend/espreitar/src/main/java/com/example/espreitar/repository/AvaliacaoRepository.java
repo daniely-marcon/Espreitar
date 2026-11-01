@@ -1,7 +1,9 @@
 package com.example.espreitar.repository;
 
 import com.example.espreitar.model.Avaliacao;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -22,6 +24,10 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, Long> {
     boolean existsByMidiaId(Long midiaId);
 
     Optional<Avaliacao> findByUsuarioIdAndMidiaId(Long usuarioId, Long midiaId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Avaliacao a where a.id = :id")
+    Optional<Avaliacao> findByIdForUpdate(@Param("id") Long id);
 
     List<Avaliacao> findByMidiaIdOrderByDataCriacaoDesc(Long midiaId);
 

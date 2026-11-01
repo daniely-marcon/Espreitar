@@ -94,6 +94,30 @@ textarea:focus-visible {
     transform: translateY(0);
 }
 
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 120px;
+    color: var(--color-primary);
+    text-align: center;
+}
+
+.loading-spinner {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border: 3px solid var(--color-primary-soft);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: girar 800ms linear infinite;
+}
+
+[aria-busy="true"] {
+    cursor: progress;
+}
+
 .acoes{
     flex-direction: row;
 }
@@ -577,6 +601,38 @@ main {
     font-size: 14px;
     line-height: 1.6;
 }
+
+.config-denuncias {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 24px;
+    padding: 16px;
+    border-radius: var(--space-3);
+    background: var(--color-primary-soft);
+    color: var(--color-ink);
+}
+
+.config-denuncias label,
+.config-denuncias small {
+    flex-basis: 100%;
+}
+
+.config-denuncias input {
+    width: 90px;
+    padding: 10px;
+}
+
+.config-denuncias small {
+    color: var(--color-text-body);
+}
+
+.config-denuncias button,
+.usuarios-admin .acoes-admin button,
+.usuarios-admin .acoes-admin select {
+    min-height: 40px;
+}
 .popup-fundo {
     position: fixed;
     inset: 0;
@@ -833,6 +889,12 @@ main {
     overflow-y: auto;
 }
 
+.resultados-api[hidden],
+#avaliacoes-tmdb[hidden],
+#campos-midia[hidden] {
+    display: none;
+}
+
 .estado-vazio {
     grid-column: 1 / -1;
     padding: 28px 18px;
@@ -878,6 +940,7 @@ main {
 }
 
 .destaque-hero {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(180px, 300px) 1fr;
     align-items: center;
@@ -937,7 +1000,16 @@ main {
     border-radius: 99px;
     background: var(--color-primary);
 }
+
+.destaque-cta::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+}
+
 .destaque-info .trailer-cta {
+    position: relative;
+    z-index: 1;
     margin-left: var(--space-3);
 }
 .google-ajuda {
@@ -1047,6 +1119,10 @@ main {
     cursor: pointer;
 }
 
+.linha-admin select {
+    max-width: 100%;
+}
+
 .linha-admin .botao-remover {
     color: #fff;
     background: #a33b52;
@@ -1062,14 +1138,44 @@ main {
     color: #fff4c7;
 }
 .usuarios-admin .cabecalho-admin {
-    grid-template-columns: 54px minmax(180px, 2fr) minmax(160px, 1.5fr) minmax(100px, 1fr) minmax(90px, auto);
+    grid-template-columns: 54px minmax(0, 1.4fr) minmax(0, 1.5fr) minmax(75px, 0.6fr) minmax(0, 1.6fr);
 }
+.usuarios-admin {
+    overflow-x: auto;
+}
+
 .usuarios-admin .linha-admin:not(.cabecalho-admin) {
-    grid-template-columns: 54px minmax(180px, 2fr) minmax(160px, 1.5fr) minmax(100px, 1fr) minmax(90px, auto);
+    grid-template-columns: 54px minmax(0, 1.4fr) minmax(0, 1.5fr) minmax(75px, 0.6fr) minmax(0, 1.6fr);
+}
+
+.usuarios-admin .linha-admin {
+    min-width: 760px;
 }
 
 .usuarios-admin .cabecalho-admin span {
     color: #fff4c7;
+}
+
+.usuarios-admin .linha-admin > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.usuarios-admin .usuario-identidade,
+.usuarios-admin .usuario-conta {
+    line-height: 1.4;
+}
+
+.usuarios-admin .usuario-identidade small,
+.usuarios-admin .usuario-conta small {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-text-body);
+    font-size: 0.85em;
+}
+
+.usuarios-admin .acoes-admin {
+    align-items: center;
 }
 
 .avatar-admin,
@@ -1245,6 +1351,10 @@ main {
     .usuarios-admin .linha-admin {
         grid-template-columns: 52px 1fr;
     }
+    .usuarios-admin .linha-admin {
+        min-width: 0;
+    }
+
     .usuarios-admin .linha-admin:not(.cabecalho-admin) > span {
         grid-column: 2;
     }
@@ -1300,6 +1410,12 @@ main {
     }
 }
 
+@keyframes girar {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -1308,5 +1424,9 @@ main {
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
+    }
+    .loading-spinner {
+        animation: none;
+        border-top-color: var(--color-primary);
     }
 }

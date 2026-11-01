@@ -12,6 +12,7 @@ public record DenunciaResposta(
         String tituloMidia,
         String denunciante,
         MotivoDenuncia motivo,
-        LocalDateTime dataCriacao
+        LocalDateTime dataCriacao,
+        long totalDenuncias
 ) {
 }

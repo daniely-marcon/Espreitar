@@ -75,6 +75,7 @@ public class UsuarioService {
         usuario.setNome(dados.nome().trim());
         usuario.setEmail(novoEmail);
         if (dados.senha() != null && !dados.senha().isBlank()) {
+            SenhaForte.validar(dados.senha());
             usuario.setSenha(passwordEncoder.encode(dados.senha()));
         }
         if (dados.fotoPerfil() != null) {
@@ -91,7 +92,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<String> listarNotificacoes(String email) {
-        return buscarUsuarioEmail(email).getNotificacoes();
+        return buscarUsuarioEmail(email).getNotificacoes().stream().distinct().toList();
     }
 
     @Transactional

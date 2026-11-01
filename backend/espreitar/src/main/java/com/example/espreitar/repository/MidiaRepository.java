@@ -36,6 +36,18 @@ public interface MidiaRepository extends JpaRepository<Midia, Long> {
             @Param("tipo") TipoMidia tipo,
             @Param("ignorarId") Long ignorarId);
 
+    @Query("""
+            SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END
+            FROM Midia m
+            WHERE LOWER(TRIM(m.titulo)) = LOWER(TRIM(:titulo))
+              AND m.tipo = :tipo
+              AND (:ano IS NULL OR m.ano IS NULL OR m.ano = :ano)
+            """)
+    boolean existsDuplicateForRequest(
+            @Param("titulo") String titulo,
+            @Param("ano") Integer ano,
+            @Param("tipo") TipoMidia tipo);
+
     /** Destaques da pagina principal (RF09). */
     Page<Midia> findAllByOrderByNotaMediaDescTotalAvaliacoesDesc(Pageable pageable);
 

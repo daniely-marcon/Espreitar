@@ -38,7 +38,7 @@ public class SolicitacaoService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
         DetalheExterno externo = midiaService.buscarDetalheExterno(dados.idExterno(), dados.tipo());
         if (midiaRepository.findByIdExternoAndTipo(externo.idExterno(), dados.tipo()).isPresent()
-                || midiaRepository.existsDuplicate(externo.titulo(), externo.ano(), dados.tipo(), null)) {
+                || midiaRepository.existsDuplicateForRequest(externo.titulo(), externo.ano(), dados.tipo())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Esse filme ou série já existe no catálogo.");
         }
         if (solicitacaoRepository.existsByUsuarioIdAndIdExternoAndTipoAndStatus(
@@ -64,7 +64,7 @@ public class SolicitacaoService {
         String tituloResumido = externo.titulo().length() > 160
                 ? externo.titulo().substring(0, 157) + "..." : externo.titulo();
         for (Usuario admin : usuarioRepository.findByPerfil(Perfil.ADMIN)) {
-            admin.getNotificacoes().add("Novo pedido de inclusão: '" + tituloResumido + "'.");
+            admin.adicionarNotificacao("Novo pedido de inclusão: '" + tituloResumido + "'.");
         }
         return resposta(salva);
     }
@@ -119,7 +119,8 @@ public class SolicitacaoService {
             midiaSalva.setTotalAvaliacoes(1);
         }
         Usuario usuario = solicitacao.getUsuario();
-        usuario.getNotificacoes().add(mensagemNotificacao(solicitacao.getTitulo(), "foi aprovada e já está disponível."));
+        usuario.adicionarNotificacao(mensagemNotificacao(
+                solicitacao.getTitulo(), "foi aprovada e já está disponível.", midiaSalva.getId()));
         solicitacaoRepository.delete(solicitacao);
         return midiaRepository.save(midiaSalva);
     }
@@ -127,8 +128,8 @@ public class SolicitacaoService {
     @Transactional
     public void rejeitarSolicitacao(Long solicitacaoId) {
         Solicitacao solicitacao = buscar(solicitacaoId);
-        solicitacao.getUsuario().getNotificacoes().add(
-                mensagemNotificacao(solicitacao.getTitulo(), "foi rejeitada."));
+        solicitacao.getUsuario().adicionarNotificacao(
+                mensagemNotificacao(solicitacao.getTitulo(), "foi rejeitada.", null));
         solicitacaoRepository.delete(solicitacao);
     }
 
@@ -137,9 +138,10 @@ public class SolicitacaoService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação não encontrada."));
     }
 
-    private String mensagemNotificacao(String titulo, String resultado) {
+    private String mensagemNotificacao(String titulo, String resultado, Long midiaId) {
         String tituloResumido = titulo.length() > 160 ? titulo.substring(0, 157) + "..." : titulo;
-        return "Seu pedido para '" + tituloResumido + "' " + resultado;
+        String mensagem = "Seu pedido para '" + tituloResumido + "' " + resultado;
+        return midiaId == null ? mensagem : mensagem + " [MIDIA_ID=" + midiaId + "]";
     }
 
     private SolicitacaoResposta resposta(Solicitacao s) {

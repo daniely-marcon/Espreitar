@@ -33,6 +33,14 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET no arquivo .env}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       TMDB_ACCESS_TOKEN: ${TMDB_ACCESS_TOKEN:-}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      APP_PUBLIC_URL: https://${APP_DOMAIN}
 
   caddy:
     image: caddy:2

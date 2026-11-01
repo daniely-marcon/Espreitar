@@ -9,12 +9,14 @@ Este projeto foi desenvolvido como requisito de avaliação para a disciplina de
 ## 🚀 Funcionalidades
 
 * **Exploração de Catálogo:** Busca de filmes e séries por título consumindo dados de uma API externa (capa, sinopse, ano).
-* **Trailers:** Reprodução de trailers do YouTube disponíveis no TMDb diretamente na página de detalhes da mídia.
+* **Trailers:** Reprodução na página da mídia de trailers do YouTube importados do TMDb ou adicionados manualmente.
 * **Sistema de Avaliações:** Usuários logados podem atribuir notas de 0 a 5 estrelas e adicionar comentários em texto às obras.
 * **Gestão de Histórico:** Cada usuário possui um perfil próprio para gerenciar, editar ou excluir suas avaliações anteriores.
 * **Autenticação Flexível:** Cadastro manual (e-mail e senha) e suporte a login integrado (Google OAuth).
-* **Moderação:** Painel administrativo para moderação e exclusão de comentários que infrinjam as regras da plataforma.
-* **Acessibilidade e telas móveis:** Navegação por teclado, foco visível, atalho para o conteúdo, respeito à preferência por movimento reduzido e layout adaptado para celular.
+* **Recuperação de senha:** Redefinição segura por link temporário enviado por SMTP; contas Google também podem definir uma senha para entrar por e-mail.
+* **Moderação:** Painel administrativo para configurar o limite de denúncias antes da remoção automática de uma avaliação, com notificação à pessoa autora.
+* **Cadastro de catálogo:** Inclusão manual de filmes e séries ou preenchimento assistido pelos dados do TMDb.
+* **Acessibilidade e telas móveis:** Navegação por teclado, foco visível, atalho para o conteúdo, estados de carregamento acessíveis, respeito à preferência por movimento reduzido e layout adaptado para celular.
 
 ---
 
@@ -56,7 +58,7 @@ Para rodar o projeto localmente, você precisará ter instalado em sua máquina:
 
 ### Banco de dados e migrações
 
-O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil, `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade, `V5` guarda os metadados TMDb dos pedidos de inclusão, `V6` adiciona trailers e `V7` registra o motivo de cada denúncia. O Hibernate está configurado com `ddl-auto=update` para compatibilidade com entidades JPA.
+O esquema do banco é criado pelo Flyway na inicialização do backend. As migrações ficam em `backend/espreitar/src/main/resources/db/migration`; `V1` cria o esquema inicial, `V2` adiciona a unicidade das denúncias, `V3` amplia o armazenamento de fotos de perfil, `V4` armazena as notas e os votos do TMDb separados das avaliações da comunidade, `V5` guarda os metadados TMDb dos pedidos de inclusão, `V6` adiciona trailers, `V7` registra o motivo de cada denúncia e `V8` cria a configuração do limite de denúncias e os tokens de recuperação de senha.
 
 O backend conecta ao MySQL em `localhost:3310/espreitar`. Para iniciar o MySQL e o phpMyAdmin do projeto, na raiz do repositório execute:
 
@@ -96,11 +98,30 @@ Quando o backend terminar de iniciar, abra `http://localhost:8081/` no computado
 4. Escolha um aparelho ou **Responsive** e teste larguras como 375 px e 320 px; recarregue a página se necessário.
 5. Teste catálogo, busca, botão de trailer, login, menus e formulários. A simulação ajuda a revisar layout e responsividade, mas não substitui um teste em um aparelho real.
 
-Para usar o login Google localmente, configure `GOOGLE_CLIENT_ID` no `.env` com o ID do mesmo cliente OAuth usado pelo app e autorize `http://localhost:8081` em **Origens JavaScript autorizadas** no Google Cloud Console. Em uma publicação, autorize a origem HTTPS do domínio público; IPs privados da rede local não são aceitos pelo Google. Também é possível entrar e registrar com e-mail e senha. Para adicionar um filme ou série ao catálogo, a pessoa administradora busca pelo título no TMDb, escolhe um resultado e confirma; o cadastro também importa a nota média (convertida da escala 0–10 para 0–5) e a quantidade de votos externos. A nota da comunidade e a do TMDb são exibidas separadamente para não misturar fontes; enquanto não houver avaliações locais, o catálogo usa a nota TMDb para exibição e filtro. Apenas mídias já salvas no banco são exibidas como obras disponíveis. Quando uma busca no catálogo não encontra a obra, uma pessoa autenticada pode escolher uma opção do TMDb e enviar um pedido junto com sua nota e comentário; título, sinopse, ano e pôster são obtidos do TMDb e não podem ser alterados no pedido. A equipe administradora recebe uma notificação de novo pedido; se aprovar, a obra é cadastrada e a avaliação é publicada; ao recusar, o pedido é removido. Em ambos os casos, a pessoa solicitante recebe uma notificação. Pedidos pendentes ficam em `admin_solicitacoes.html`. Denúncias podem ser marcadas como contendo spoiler ou palavras ofensivas; a escolha do motivo não altera o comentário original. Para conceder acesso administrativo a uma conta criada, execute no banco local, substituindo o e-mail:
+Para usar o login Google localmente, configure `GOOGLE_CLIENT_ID` no `.env` com o ID do mesmo cliente OAuth usado pelo app e autorize `http://localhost:8081` em **Origens JavaScript autorizadas** no Google Cloud Console. Em uma publicação, autorize a origem HTTPS do domínio público; IPs privados da rede local não são aceitos pelo Google. Também é possível entrar e registrar com e-mail e senha. As senhas novas precisam ter ao menos 8 caracteres, uma letra maiúscula, uma minúscula, um número e um símbolo. Quem entrou com Google pode definir uma senha na tela **Alterar dados** e também passar a entrar por e-mail e senha.
+
+Na administração do catálogo, escolha **Com ajuda do TMDb** para buscar e importar os metadados ou **Cadastro manual** para preencher título, tipo, ano, sinopse, pôster e, opcionalmente, o link de um trailer do YouTube. Os links de vídeo do YouTube são convertidos para um formato seguro de incorporação. O modo assistido importa a nota externa (convertida da escala 0–10 para 0–5), a quantidade de votos e o trailer quando disponíveis. Quando não há trailer cadastrado/encontrado, a tela de detalhes informa apenas que o trailer está indisponível. No painel de denúncias, a administração configura o limite de 1 a 100 denúncias únicas; ao atingir o limite, a avaliação é removida e a pessoa autora recebe uma notificação no app. O valor inicial é 5. Para conceder acesso administrativo a uma conta criada, use o seletor de perfil em **Usuários** ou execute no banco local, substituindo o e-mail:
 
 ```sql
 UPDATE usuario SET perfil = 'ADMIN' WHERE email = 'admin@example.com';
 ```
+
+### Recuperação de senha por e-mail
+
+A recuperação usa SMTP e links de uso único com validade de 30 minutos. Para testar localmente com Gmail, preencha no `.env` `MAIL_USERNAME` com seu endereço Gmail, `MAIL_PASSWORD` com uma senha de app do Google e `MAIL_FROM` com o mesmo endereço. O host, a porta, TLS e a URL local já estão configurados no exemplo abaixo. Não use a senha normal da conta Google nem publique credenciais SMTP:
+
+```text
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=seu-endereco@gmail.com
+MAIL_PASSWORD=sua-senha-de-app-do-google
+MAIL_FROM=seu-endereco@gmail.com
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS=true
+APP_PUBLIC_URL=http://localhost:8081
+```
+
+Ative a verificação em duas etapas na conta Google e crie uma senha de app na área de segurança da Conta Google. `MAIL_PASSWORD` recebe essa senha de app, não a senha normal. O `.env` é carregado automaticamente pelo Spring Boot ao executar o projeto a partir da pasta `backend/espreitar`. `APP_PUBLIC_URL` é a origem usada para montar o link de redefinição; localmente mantenha `http://localhost:8081`. Depois de preencher as credenciais, reinicie o backend e teste **Esqueci minha senha**. Sem SMTP configurado, o serviço avisa que a recuperação por e-mail ainda não está disponível. O formulário não revela se o endereço informado possui uma conta. No Render, configure as mesmas variáveis no painel do serviço e use a URL HTTPS pública em `APP_PUBLIC_URL`.
 
 ### Publicar na Oracle Cloud Always Free
 

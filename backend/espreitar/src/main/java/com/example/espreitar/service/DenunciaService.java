@@ -5,6 +5,7 @@ import com.example.espreitar.model.Denuncia;
 import com.example.espreitar.model.MotivoDenuncia;
 import com.example.espreitar.model.Usuario;
 import com.example.espreitar.model.dto.DenunciaResposta;
+import com.example.espreitar.model.dto.LimiteDenuncias;
 import com.example.espreitar.repository.AvaliacaoRepository;
 import com.example.espreitar.repository.DenunciaRepository;
 import com.example.espreitar.repository.UsuarioRepository;
@@ -23,13 +24,15 @@ public class DenunciaService {
     private final DenunciaRepository denunciaRepository;
     private final UsuarioRepository usuarioRepository;
     private final AvaliacaoRepository avaliacaoRepository;
+    private final ConfiguracaoSistemaService configuracaoSistemaService;
+    private final AvaliacaoService avaliacaoService;
 
     @Transactional
     public DenunciaResposta criarDenuncia(String email, Long avaliacaoId, MotivoDenuncia motivo) {
         String emailNormalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
         Usuario usuario = usuarioRepository.findByEmail(emailNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
-        Avaliacao avaliacao = avaliacaoRepository.findById(avaliacaoId)
+        Avaliacao avaliacao = avaliacaoRepository.findByIdForUpdate(avaliacaoId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliação não encontrada."));
         if (avaliacao.getUsuario().getId().equals(usuario.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não é possível denunciar sua própria avaliação.");
@@ -41,7 +44,20 @@ public class DenunciaService {
         denuncia.setUsuario(usuario);
         denuncia.setAvaliacao(avaliacao);
         denuncia.setMotivo(motivo == null ? MotivoDenuncia.OUTRO : motivo);
-        return resposta(denunciaRepository.save(denuncia));
+        DenunciaResposta resposta = resposta(denunciaRepository.saveAndFlush(denuncia));
+        LimiteDenuncias limite = configuracaoSistemaService.buscarLimiteDenuncias();
+        if (resposta.totalDenuncias() >= limite.limiteDenuncias()) {
+            String titulo = avaliacao.getMidia().getTitulo();
+            String tituloResumido = titulo.length() > 100 ? titulo.substring(0, 97) + "..." : titulo;
+            String notificacao = "Sua avaliação foi removida automaticamente após receber "
+                    + limite.limiteDenuncias() + " denúncias. Título: " + tituloResumido
+                    + " [MIDIA_ID=" + avaliacao.getMidia().getId() + "]";
+            avaliacao.getUsuario().adicionarNotificacao(notificacao);
+            denunciaRepository.deleteByAvaliacaoId(avaliacao.getId());
+            denunciaRepository.flush();
+            avaliacaoService.excluirAutomaticamente(avaliacao.getId());
+        }
+        return resposta;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +82,7 @@ public class DenunciaService {
         return new DenunciaResposta(d.getId(), d.getAvaliacao().getId(),
                 d.getAvaliacao().getComentario(), d.getAvaliacao().getUsuario().getNome(),
                 d.getAvaliacao().getMidia().getTitulo(), d.getUsuario().getNome(),
-                d.getMotivo(), d.getDataCriacao());
+                d.getMotivo(), d.getDataCriacao(),
+                denunciaRepository.countByAvaliacaoId(d.getAvaliacao().getId()));
     }
 }

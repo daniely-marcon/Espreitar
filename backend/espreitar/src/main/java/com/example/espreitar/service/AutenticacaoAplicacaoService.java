@@ -38,6 +38,7 @@ public class AutenticacaoAplicacaoService {
     }
 
     public AuthResposta cadastrar(CadastroUsuario dados) {
+        SenhaForte.validar(dados.senha());
         String email = normalizarEmail(dados.email());
         if (usuarios.existsByEmail(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "E-mail já cadastrado.");

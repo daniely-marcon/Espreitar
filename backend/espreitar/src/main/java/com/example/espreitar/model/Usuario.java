@@ -72,6 +72,12 @@ public class Usuario {
     @Column(name = "mensagem", nullable = false, length = 255)
     private List<String> notificacoes = new ArrayList<>();
 
+    public void adicionarNotificacao(String mensagem) {
+        if (!notificacoes.contains(mensagem)) {
+            notificacoes.add(mensagem);
+        }
+    }
+
     @PrePersist
     void aoCriar() {
         if (dataCriacao == null) {

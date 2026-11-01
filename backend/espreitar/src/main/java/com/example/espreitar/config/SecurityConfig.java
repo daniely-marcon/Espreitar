@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/Espreitar/**", "/error", "/actuator/health").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/usuarios/admin", "/usuarios/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/configuracoes/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/midias/externa", "/midias/externa/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/midias", "/midias/**", "/avaliacoes/midia/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/denuncias", "/denuncias/**",
