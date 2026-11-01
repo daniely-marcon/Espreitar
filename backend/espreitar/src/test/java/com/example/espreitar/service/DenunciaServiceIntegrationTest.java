@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(properties = {
@@ -56,7 +57,7 @@ class DenunciaServiceIntegrationTest {
 
         assertNotNull(denuncia.dataCriacao());
         assertEquals(avaliacao.getId(), denuncia.avaliacaoId());
-        assertEquals("Comentário de teste", denuncia.comentario());
+        assertEquals("Avaliação de teste", denuncia.comentario());
         assertEquals("Usuário autor", denuncia.autor());
         assertEquals("Mídia de teste", denuncia.tituloMidia());
         assertEquals("Usuário denunciante", denuncia.denunciante());
